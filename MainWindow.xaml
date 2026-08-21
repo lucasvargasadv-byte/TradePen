@@ -1,0 +1,658 @@
+﻿<Window x:Class="TraderPen.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="TraderPen Overlay"
+        Icon="/TraderPen;component/Assets/AppIcon.ico"
+        Topmost="True"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <Window.Resources>
+        <!-- Estilo Base dos Botões de Ferramenta -->
+        <Style x:Key="ToolButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="62"/>
+            <Setter Property="Height" Value="46"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3A3A3A"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#333333"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#5C5C5C"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo dos Botões de Cor (circulares) -->
+        <Style x:Key="ColorButtonStyle" TargetType="Button">
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#AAAAAA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo dos Botões de Espessura -->
+        <Style x:Key="ThicknessButtonStyle" TargetType="Button">
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3A3A3A"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#333333"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Estilo do texto pequeno embaixo do ícone -->
+        <Style x:Key="ToolLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="9"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#9A9A9A"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,3,0,0"/>
+        </Style>
+
+        <!-- Estilo da "tecla" (badge) dentro da legenda de atalhos -->
+        <Style x:Key="ShortcutKeyBadgeStyle" TargetType="Border">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="MinWidth" Value="26"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+
+        <!-- Estilo do texto da "tecla" dentro do badge -->
+        <Style x:Key="ShortcutKeyTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#29B6F6"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Estilo do texto de descrição do atalho -->
+        <Style x:Key="ShortcutDescStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#CFCFCF"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="MainGrid" Background="Transparent">
+
+        <!-- Fundo do quadro: Transparente / Whiteboard / Blackboard -->
+        <Rectangle x:Name="BoardBackground" Fill="Transparent" IsHitTestVisible="False"/>
+
+        <!-- Canvas de desenho -->
+        <Canvas x:Name="DrawCanvas" 
+                Background="#01000000"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                MouseLeftButtonDown="DrawCanvas_MouseLeftButtonDown"
+                MouseLeftButtonUp="DrawCanvas_MouseLeftButtonUp"
+                MouseRightButtonDown="DrawCanvas_MouseRightButtonDown"
+                MouseRightButtonUp="DrawCanvas_MouseRightButtonUp"
+                MouseMove="DrawCanvas_MouseMove" />
+
+        <!-- Overlay da UI -->
+        <Canvas x:Name="UIOverlayCanvas" IsHitTestVisible="True">
+
+            <!-- Crosshair: segue o mouse no Drawing Mode -->
+            <Line x:Name="CrosshairV"
+                  Stroke="#CC808080"
+                  StrokeThickness="1"
+                  StrokeDashArray="4,4"
+                  IsHitTestVisible="False"
+                  Visibility="Collapsed"/>
+            <Line x:Name="CrosshairH"
+                  Stroke="#CC808080"
+                  StrokeThickness="1"
+                  StrokeDashArray="4,4"
+                  IsHitTestVisible="False"
+                  Visibility="Collapsed"/>
+
+            <TextBlock x:Name="ModeIndicator" 
+                       Text="MOUSE MODE (Pressione F9 para desenhar)" 
+                       Foreground="White" 
+                       FontSize="12" 
+                       FontWeight="Bold" 
+                       Canvas.Left="10" 
+                       Canvas.Top="10"
+                       IsHitTestVisible="False">
+                <TextBlock.Effect>
+                    <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="Black"/>
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- Toolbar Flutuante -->
+            <Border x:Name="ToolbarBorder"
+                    Canvas.Left="150" Canvas.Top="20"
+                    Background="#1C1C1E"
+                    CornerRadius="10"
+                    Padding="10,8"
+                    BorderBrush="#3A3A3A"
+                    BorderThickness="1"
+                    Visibility="Collapsed"
+                    MouseLeftButtonDown="Toolbar_MouseLeftButtonDown"
+                    MouseMove="Toolbar_MouseMove"
+                    MouseLeftButtonUp="Toolbar_MouseLeftButtonUp">
+
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Color="Black" Opacity="0.5"/>
+                </Border.Effect>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+                    <!-- Logo + Nome do App (área de arrasto) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,10,0">
+                        <Border Width="28" Height="28" CornerRadius="7" Margin="0,0,7,0" ClipToBounds="True">
+                            <Image Source="Assets/logo.png" Stretch="Uniform"/>
+                        </Border>
+                        <TextBlock Text="TRADEPEN" FontSize="10" FontWeight="Bold" Foreground="#7A7A7A" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="4,0,8,0"/>
+
+                    <!-- Ferramentas -->
+                    <StackPanel x:Name="ToolContainer" Orientation="Horizontal">
+                        <Button Tag="Select" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Mover (M)">
+                            <StackPanel>
+                                <TextBlock Text="✋" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="MOVER (M)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Pen" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Caneta (1)">
+                            <StackPanel>
+                                <TextBlock Text="✏️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="CANETA (1)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Highlighter" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Marca-texto (2)">
+                            <StackPanel>
+                                <TextBlock Text="🖍️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="MARCA (2)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Rectangle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Retângulo (3)">
+                            <StackPanel>
+                                <TextBlock Text="🔲" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="RETÂNG. (3)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Ellipse" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Círculo (4)">
+                            <StackPanel>
+                                <TextBlock Text="⭕" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="CÍRCULO (4)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
+
+                        <Button Tag="Line" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Linha (5)">
+                            <StackPanel>
+                                <TextBlock Text="📏" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="LINHA (5)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Arrow" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Seta (6)">
+                            <StackPanel>
+                                <TextBlock Text="➡️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="SETA (6)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Path" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Path (7)">
+                            <StackPanel>
+                                <TextBlock Text="📈" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="PATH (7)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Candle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Candle (8)">
+                            <StackPanel>
+                                <TextBlock Text="🕯️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="CANDLE (8)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="FVG" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="FVG (9)">
+                            <StackPanel>
+                                <TextBlock Text="🟦" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="FVG (9)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
+
+                        <Button Tag="Text" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Texto (T)">
+                            <StackPanel>
+                                <TextBlock Text="📝" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="TEXTO (T)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="Eraser" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Borracha (E)">
+                            <StackPanel>
+                                <TextBlock Text="🧹" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="BORR. (E)" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+
+                    <!-- Cores -->
+                    <UniformGrid x:Name="ColorContainer" Columns="2" VerticalAlignment="Center">
+                        <Button Background="#FF4444" Tag="Red" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                        <Button Background="#00C853" Tag="Green" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                        <Button Background="#FFD600" Tag="Yellow" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                        <Button Background="#29B6F6" Tag="Blue" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                        <Button Background="#000000" Tag="Black" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                        <Button Background="#FFFFFF" Tag="White" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                    </UniformGrid>
+
+                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+
+                    <!-- Espessuras -->
+                    <StackPanel x:Name="ThicknessContainer" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="• Fina" Tag="2" Click="ThicknessButton_Click" Style="{StaticResource ThicknessButtonStyle}"/>
+                        <Button Content="━ Padrão" Tag="4" Click="ThicknessButton_Click" Style="{StaticResource ThicknessButtonStyle}"/>
+                        <Button Content="█ Destaque" Tag="8" Click="ThicknessButton_Click" Style="{StaticResource ThicknessButtonStyle}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+
+                    <!-- Ações -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="BoardModeButton" Style="{StaticResource ToolButtonStyle}" Click="BoardModeButton_Click" ToolTip="Alternar fundo: Transparente / Whiteboard / Blackboard">
+                            <StackPanel>
+                                <TextBlock x:Name="BoardModeIcon" Text="🖥️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="BoardModeLabel" Text="TRANSP." Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ToggleCanvasVisibilityButton" Style="{StaticResource ToolButtonStyle}" Click="ToggleCanvasVisibility_Click" ToolTip="Ocultar/Mostrar Desenhos">
+                            <StackPanel>
+                                <TextBlock Text="👁️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="MOSTRAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="UndoButton_Click" ToolTip="Desfazer (Ctrl+Z)">
+                            <StackPanel>
+                                <TextBlock Text="↶" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="DESFAZER" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="RedoButton_Click" ToolTip="Refazer (Ctrl+Y)">
+                            <StackPanel>
+                                <TextBlock Text="↷" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="REFAZER" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="ClearButton_Click" ToolTip="Limpar Tudo">
+                            <StackPanel>
+                                <TextBlock Text="🗑" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="LIMPAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ShortcutsButton" Style="{StaticResource ToolButtonStyle}" Click="ShortcutsButton_Click" ToolTip="Ver atalhos do teclado">
+                            <StackPanel>
+                                <TextBlock Text="⌨️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="ATALHOS" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="MinimizeButton" Style="{StaticResource ToolButtonStyle}" Click="MinimizeButton_Click" ToolTip="Minimizar barra de ferramentas">
+                            <StackPanel>
+                                <TextBlock Text="➖" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="MINIMIZAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="CloseButton_Click" ToolTip="Fechar">
+                            <StackPanel>
+                                <TextBlock Text="✕" FontSize="18" HorizontalAlignment="Center" Foreground="#FF6B6B"/>
+                                <TextBlock Text="FECHAR" Style="{StaticResource ToolLabelStyle}" Foreground="#FF6B6B"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Popup com a legenda de atalhos do teclado -->
+            <Popup x:Name="ShortcutsPopup"
+                   PlacementTarget="{Binding ElementName=ShortcutsButton}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade">
+                <Border Background="#1C1C1E"
+                        BorderBrush="#3A3A3A"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="14,12"
+                        Margin="0,6,0,0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="4" Color="Black" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <TextBlock Text="ATALHOS DO TECLADO" FontSize="11" FontWeight="Bold" Foreground="#7A7A7A" Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal">
+
+                            <!-- Coluna esquerda: ferramentas -->
+                            <StackPanel Width="190">
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="M" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Mover / Selecionar" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="1" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Caneta" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="2" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Marca-texto" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="3" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Retângulo" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="4" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Círculo" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="5" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Linha" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="6" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Seta" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="7" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Path (multi-ponto)" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="8" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Candle" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="9" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="FVG" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="T" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Texto" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="E" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Borracha" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <Rectangle Width="1" Fill="#333333" Margin="10,0"/>
+
+                            <!-- Coluna direita: ações e modificadores -->
+                            <StackPanel Width="230">
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="R" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Cor vermelha" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="G" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Cor verde" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="F9" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Ativar/desativar modo desenho" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Ctrl+Z" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Desfazer" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Ctrl+Y" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Refazer" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Esc" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Cancelar seleção / sair do Path" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Enter" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Finalizar o Path" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Ctrl+Clique" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Seleção múltipla (ferramenta Mover)" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Shift+Arrastar" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Trava a Linha/Seta na horizontal" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Botão dir." Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Desenha o pavio do Candle" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="2x Clique" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Finaliza o Path" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Bolinha flutuante: aparece quando a barra é minimizada (estilo Epic Pen) -->
+            <Border x:Name="MinimizedBubble"
+                    Canvas.Left="150" Canvas.Top="20"
+                    Width="42" Height="42"
+                    CornerRadius="21"
+                    Background="#1C1C1E"
+                    BorderBrush="#3A3A3A"
+                    BorderThickness="1"
+                    Visibility="Collapsed"
+                    Cursor="Hand"
+                    ToolTip="Clique para reabrir a barra de ferramentas"
+                    MouseLeftButtonDown="MinimizedBubble_MouseLeftButtonDown"
+                    MouseMove="MinimizedBubble_MouseMove"
+                    MouseLeftButtonUp="MinimizedBubble_MouseLeftButtonUp">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="14" ShadowDepth="3" Color="Black" Opacity="0.5"/>
+                </Border.Effect>
+                <Border Width="30" Height="30" CornerRadius="8" ClipToBounds="True">
+                    <Image Source="Assets/logo.png" Stretch="Uniform"/>
+                </Border>
+            </Border>
+        </Canvas>
+    </Grid>
+</Window>

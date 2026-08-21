@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+
+    <!-- Identidade / metadados do app (aparecem nas propriedades do .exe no Windows) -->
+    <AssemblyName>TraderPen</AssemblyName>
+    <Product>TraderPen</Product>
+    <AssemblyTitle>TraderPen</AssemblyTitle>
+    <Description>Overlay de desenho para telas de trading</Description>
+    <Company>TraderPen</Company>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+
+    <!-- Ícone do .exe e da janela -->
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Ícone usado pela janela WPF -->
+    <Resource Include="Assets\AppIcon.ico" />
+    <!-- Logo usado dentro da própria toolbar (Image no XAML) -->
+    <Resource Include="Assets\logo.png" />
+  </ItemGroup>
+
+</Project>
