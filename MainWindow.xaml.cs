@@ -6,7 +6,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using TraderPen.History;
 using TraderPen.Input;
 using TraderPen.Overlay;
@@ -28,7 +31,7 @@ namespace TraderPen
 
         private ToolType _currentTool = ToolType.Pen;
         private Color _currentColor = (Color)ColorConverter.ConvertFromString("#FF4444");
-        private double _currentThickness = 4; // Média por padrão
+        private double _currentThickness = 2; // Fina por padrão
         private Point _startPoint;
 
         private UIElement? _currentShape;
@@ -51,10 +54,38 @@ namespace TraderPen
         private Grid? _activePathGroup;
         private Path? _activePathElement;
 
-        private readonly UndoManager _undoManager = new();
+        private UndoManager _undoManager = new();
+
+        // ---- Abas (histórico de telas da aula) ----
+        private readonly List<DrawingTab> _savedTabs = new();
+        private int _nextTabNumber = 1;
+        private DrawingTab? _activeTab = null; // null = a tela atual ainda não foi salva como aba
 
         private bool _isDraggingToolbar = false;
+        private bool _toolbarDragged = false;
         private Point _toolbarDragStart;
+
+        // ---- Auto-esconder o indicador de modo (DRAWING/MOUSE MODE) ----
+        private readonly DispatcherTimer _modeIndicatorTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
+
+        // ---- Modo da borracha: apaga o traço inteiro ou só o pedaço por onde passa ----
+        private bool _eraserWholeMode = true; // true = inteiro (padrão atual); false = pedaços (estilo borracha normal)
+
+        // ---- Modo do retângulo: vazado (contorno) ou preenchido ----
+        private bool _rectangleFilledMode = false; // false = vazado (padrão atual); true = preenchido
+
+        // Sessão de borracha em andamento (do MouseDown até o MouseUp). Enquanto
+        // não-nula, ApplyEraserAtPoint aplica os cortes direto na tela, sem gerar
+        // um Undo por frame — tudo vira UM único passo de Undo ao soltar o mouse.
+        private EraserSessionCommand? _eraserSession;
+
+        // Guarda o último ponto onde a borracha realmente processou um corte,
+        // para "espaçar" as chamadas (throttling) — sem isso, o WPF dispara
+        // MouseMove dezenas de vezes por segundo e cada uma delas recalcularia
+        // geometria, mesmo movendo o mouse 1 pixel. Cortar a cada ~6px de
+        // distância já é suave visualmente e reduz muito o custo por gesto.
+        private Point? _lastEraserPoint;
+        private const double EraserStepDistance = 6.0;
 
         // ---- Minimizar toolbar (bolinha flutuante estilo Epic Pen) ----
         private bool _toolbarMinimized = false;
@@ -76,6 +107,25 @@ namespace TraderPen
 
             DrawCanvas.MouseRightButtonDown += DrawCanvas_MouseRightButtonDown;
             DrawCanvas.MouseRightButtonUp += DrawCanvas_MouseRightButtonUp;
+
+            _modeIndicatorTimer.Tick += (_, _) =>
+            {
+                _modeIndicatorTimer.Stop();
+                var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(400));
+                ModeIndicator.BeginAnimation(OpacityProperty, fadeOut);
+            };
+        }
+
+        /// <summary>
+        /// Mostra o indicador de modo/ferramenta por alguns segundos e some sozinho,
+        /// em vez de ficar fixo no canto da tela o tempo todo.
+        /// </summary>
+        private void ShowModeIndicatorTemporarily()
+        {
+            ModeIndicator.BeginAnimation(OpacityProperty, null); // cancela qualquer fade em andamento
+            ModeIndicator.Opacity = 1;
+            _modeIndicatorTimer.Stop();
+            _modeIndicatorTimer.Start();
         }
 
         private void MainWindow_SourceInitialized(object? sender, EventArgs e)
@@ -88,7 +138,7 @@ namespace TraderPen
 
             HighlightToolButton(_currentTool.ToString());
             HighlightColorButton("Red");
-            HighlightThicknessButton("4");
+            HighlightThicknessButton("2");
         }
 
         private void ToggleMode()
@@ -103,6 +153,7 @@ namespace TraderPen
                 this.Focus();
 
                 ModeIndicator.Text = $"DRAWING MODE | Ferramenta: {_currentTool} (Pressione F9 para soltar o mouse)";
+                ShowModeIndicatorTemporarily();
 
                 // Restaura a barra do jeito que o usuário deixou: minimizada (bolinha) ou aberta.
                 if (_toolbarMinimized)
@@ -118,11 +169,35 @@ namespace TraderPen
             {
                 FinalizePathDrawing();
                 ClearSelection();
+                CloseEraserSession();
                 NativeMethods.EnableClickThrough(hwnd);
                 ModeIndicator.Text = "MOUSE MODE (Pressione F9 para desenhar)";
+                ShowModeIndicatorTemporarily();
             }
 
             UpdateCrosshairVisibility();
+        }
+
+        // Fecha uma sessão de borracha em andamento (se houver), registrando no
+        // Undo o que já foi apagado até agora. Usado como "trava de segurança"
+        // caso o usuário troque de ferramenta ou saia do Drawing Mode no meio
+        // do arraste, sem soltar o botão do mouse primeiro.
+        private void CloseEraserSession()
+        {
+            if (_eraserSession == null) return;
+
+            if (DrawCanvas.IsMouseCaptured)
+            {
+                DrawCanvas.ReleaseMouseCapture();
+            }
+
+            if (_eraserSession.HasChanges)
+            {
+                _undoManager.RegisterCompletedCommand(_eraserSession);
+            }
+
+            _eraserSession = null;
+            _lastEraserPoint = null;
         }
 
         private void UpdateCrosshairVisibility()
@@ -131,6 +206,8 @@ namespace TraderPen
             CrosshairV.Visibility = showCrosshair ? Visibility.Visible : Visibility.Collapsed;
             CrosshairH.Visibility = showCrosshair ? Visibility.Visible : Visibility.Collapsed;
             DrawCanvas.Cursor = showCrosshair ? Cursors.None : Cursors.Arrow;
+            CandleWidthPreview.Visibility = Visibility.Collapsed; // reaparece no próximo movimento do mouse, se fizer sentido
+            EraserPreview.Visibility = (_drawingMode && _currentTool == ToolType.Eraser) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
@@ -190,8 +267,14 @@ namespace TraderPen
                 ClearSelection();
             }
 
+            if (_currentTool == ToolType.Eraser && tool != ToolType.Eraser)
+            {
+                CloseEraserSession();
+            }
+
             _currentTool = tool;
             ModeIndicator.Text = $"DRAWING MODE | Ferramenta: {_currentTool} (Pressione F9 para soltar o mouse)";
+            ShowModeIndicatorTemporarily();
             HighlightToolButton(tool.ToString());
             UpdateCrosshairVisibility();
         }
@@ -552,7 +635,10 @@ namespace TraderPen
 
             if (_currentTool == ToolType.Eraser)
             {
+                _eraserSession = new EraserSessionCommand(DrawCanvas);
+                _lastEraserPoint = null; // garante que o primeiro corte do gesto sempre acontece
                 ApplyEraserAtPoint(currentClick);
+                DrawCanvas.CaptureMouse();
                 return;
             }
 
@@ -630,7 +716,7 @@ namespace TraderPen
                     {
                         Stroke = brush,
                         StrokeThickness = thickness,
-                        Fill = Brushes.Transparent
+                        Fill = _rectangleFilledMode ? brush : Brushes.Transparent
                     };
                     Canvas.SetLeft(_currentShape, _startPoint.X);
                     Canvas.SetTop(_currentShape, _startPoint.Y);
@@ -738,11 +824,28 @@ namespace TraderPen
             _undoManager.ExecuteCommand(cmd);
         }
 
+        // Aplica a borracha em um ponto DENTRO de uma sessão já aberta (ver
+        // _eraserSession). Não mexe no UndoManager diretamente — cada
+        // remoção/adição só é registrada dentro da sessão, e um único
+        // comando é empilhado no Undo quando o mouse é solto.
         private void ApplyEraserAtPoint(Point erasePoint)
         {
+            if (_eraserSession == null) return;
+
+            // Throttling por distância: só reprocessa o corte se o mouse já se
+            // moveu o suficiente desde a última vez. Isso evita recalcular
+            // geometria a cada pixel — o maior vilão do travamento.
+            if (_lastEraserPoint.HasValue)
+            {
+                double movedDistance = (erasePoint - _lastEraserPoint.Value).Length;
+                if (movedDistance < EraserStepDistance)
+                {
+                    return;
+                }
+            }
+            _lastEraserPoint = erasePoint;
+
             double eraserRadius = Math.Max(12, GetEffectiveThickness() * 3);
-            var elementsToRemove = new List<UIElement>();
-            var elementsToAdd = new List<UIElement>();
 
             foreach (UIElement child in DrawCanvas.Children.OfType<UIElement>().ToList())
             {
@@ -754,7 +857,8 @@ namespace TraderPen
                     continue;
                 }
 
-                if (child is Polyline polyline)
+                // Modo "Em Pedaços": traços de caneta/marca-texto são cortados ponto a ponto
+                if (!_eraserWholeMode && child is Polyline polyline)
                 {
                     var currentSegment = new PointCollection();
                     bool segmentSplit = false;
@@ -766,7 +870,7 @@ namespace TraderPen
                             segmentSplit = true;
                             if (currentSegment.Count > 1)
                             {
-                                elementsToAdd.Add(CreatePartialPolyline(polyline, currentSegment));
+                                _eraserSession.Add(CreatePartialPolyline(polyline, currentSegment));
                             }
                             currentSegment = new PointCollection();
                         }
@@ -778,43 +882,232 @@ namespace TraderPen
 
                     if (segmentSplit)
                     {
-                        elementsToRemove.Add(polyline);
+                        _eraserSession.Remove(polyline);
                         if (currentSegment.Count > 1)
                         {
-                            elementsToAdd.Add(CreatePartialPolyline(polyline, currentSegment));
+                            _eraserSession.Add(CreatePartialPolyline(polyline, currentSegment));
                         }
                     }
+                    continue;
                 }
-                else
+
+                // Modo "Em Pedaços": Retângulo, Elipse, Linha e Seta ganham um recorte
+                // de verdade (buraco na geometria), estilo borracha do Paint.
+                if (!_eraserWholeMode && (child is Rectangle || child is Ellipse || child is Line || child is Path))
                 {
-                    Rect bounds = GetElementCanvasBounds(child);
-                    if (child.RenderTransform is Transform transform)
-                    {
-                        bounds = transform.TransformBounds(bounds);
-                    }
-
-                    bounds.Inflate(eraserRadius, eraserRadius);
-                    Point ptRelativeToElement = DrawCanvas.TranslatePoint(erasePoint, child);
-
-                    if (bounds.Contains(erasePoint) || child.InputHitTest(ptRelativeToElement) != null)
+                    var (touched, replacement) = TryCutShape(child, erasePoint, eraserRadius);
+                    if (touched)
                     {
                         if (_selectedElements.Contains(child)) ClearSelection();
-                        elementsToRemove.Add(child);
+                        _eraserSession.Remove(child);
+                        if (replacement != null)
+                        {
+                            _eraserSession.Add(replacement);
+                        }
                     }
+                    continue;
+                }
+
+                // Modo "Inteiro" (ou formas sem suporte a corte parcial: FVG, Texto, Path multi-segmento)
+                Rect bounds = GetElementCanvasBounds(child);
+                if (child.RenderTransform is Transform transform)
+                {
+                    bounds = transform.TransformBounds(bounds);
+                }
+
+                bounds.Inflate(eraserRadius, eraserRadius);
+                Point ptRelativeToElement = DrawCanvas.TranslatePoint(erasePoint, child);
+
+                if (bounds.Contains(erasePoint) || child.InputHitTest(ptRelativeToElement) != null)
+                {
+                    if (_selectedElements.Contains(child)) ClearSelection();
+                    _eraserSession.Remove(child);
                 }
             }
+        }
 
-            foreach (var el in elementsToRemove)
+        // Tenta "morder" um pedaço real da forma no ponto da borracha, usando
+        // subtração de geometria (CombinedGeometry/Exclude) — o mesmo truque
+        // usado em editores vetoriais pra simular a borracha do Paint sem
+        // precisar converter nada pra bitmap.
+        //
+        // IMPORTANTE sobre performance: se "child" já é o RESULTADO de um corte
+        // anterior (um Path cuja tag é "ERASED_SHAPE"), a geometria dele já
+        // representa uma ÁREA (não um traço fino) — então aplicamos o Exclude
+        // DIRETO nela, sem chamar GetWidenedPathGeometry de novo. Recalcular o
+        // contorno "largo" (widen) em cima de uma geometria já complexa, a cada
+        // pixel de movimento do mouse, é o que travava a tela: o custo cresce
+        // muito rápido conforme a forma vai sendo mordida várias vezes.
+        //
+        // Retorna (false, null) se a borracha nem tocou a forma.
+        // Retorna (true, null) se a borracha cobriu a forma inteira (remover sem substituir).
+        // Retorna (true, Path) com a forma já "mordida" no ponto certo.
+
+        // Diz se um Brush representa um preenchimento visível de verdade (cor
+        // sólida com opacidade real), em vez de vazio/transparente. Usado para
+        // decidir se a borracha deve morder a ÁREA inteira (Candle, Retângulo
+        // Preenchido) ou só o CONTORNO fino (Retângulo Vazado, Círculo, etc.).
+        private static bool IsVisuallyFilled(Brush? brush)
+        {
+            if (brush == null) return false;
+            if (brush == Brushes.Transparent) return false;
+            if (brush is SolidColorBrush solid) return solid.Color.A > 0;
+            return true; // outros tipos de Brush (gradiente etc.) — assume preenchido
+        }
+
+        private (bool touched, Path? replacement) TryCutShape(UIElement child, Point erasePoint, double eraserRadius)
+        {
+            // Caso especial: "child" já é uma forma que resultou de um corte
+            // anterior. A geometria dela já é uma ÁREA fechada — pula direto
+            // pro Exclude, sem recalcular widen (ver comentário acima do método).
+            if (child is Path alreadyCutPath && Equals(alreadyCutPath.Tag, "ERASED_SHAPE") && alreadyCutPath.Data != null)
             {
-                var cmd = new RemoveStrokeCommand(DrawCanvas, el);
-                _undoManager.ExecuteCommand(cmd);
+                return CutAreaGeometry(alreadyCutPath.Data, alreadyCutPath.Fill, alreadyCutPath.Stroke, alreadyCutPath.StrokeThickness, erasePoint, eraserRadius);
             }
 
-            foreach (var el in elementsToAdd)
+            double offsetX = 0, offsetY = 0;
+            double left = Canvas.GetLeft(child);
+            double top = Canvas.GetTop(child);
+            if (!double.IsNaN(left)) offsetX += left;
+            if (!double.IsNaN(top)) offsetY += top;
+            if (child.RenderTransform is TranslateTransform tt)
             {
-                var cmd = new AddStrokeCommand(DrawCanvas, el);
-                _undoManager.ExecuteCommand(cmd);
+                offsetX += tt.X;
+                offsetY += tt.Y;
             }
+
+            Geometry? sourceGeometry = null;
+            Brush? fillBrush = null;
+            Brush? strokeBrush = null;
+            double strokeThickness = 0;
+
+            switch (child)
+            {
+                case Rectangle rect:
+                    if (rect.Width <= 0 || rect.Height <= 0) return (false, null);
+                    if (IsVisuallyFilled(rect.Fill))
+                    {
+                        // Preenchido de verdade (Candle, ou Retângulo no modo
+                        // "Preenchido") — usa a área inteira mesmo.
+                        sourceGeometry = new RectangleGeometry(new Rect(offsetX, offsetY, rect.Width, rect.Height));
+                        fillBrush = rect.Fill;
+                        strokeBrush = rect.Stroke;
+                        strokeThickness = rect.StrokeThickness;
+                    }
+                    else
+                    {
+                        // Retângulo vazado (Fill=Transparent/nulo) — usa o
+                        // CONTORNO (não a área preenchida), igual já acontece
+                        // com Linha/Seta/Caneta. Sem isso, a borracha "comia"
+                        // um buraco na área inteira, incluindo o miolo vazio,
+                        // em vez de apagar só o traço.
+                        var rectGeo = new RectangleGeometry(new Rect(offsetX, offsetY, rect.Width, rect.Height));
+                        var rectPen = new Pen(rect.Stroke, Math.Max(1, rect.StrokeThickness))
+                        {
+                            LineJoin = PenLineJoin.Round
+                        };
+                        sourceGeometry = rectGeo.GetWidenedPathGeometry(rectPen);
+                        fillBrush = rect.Stroke;
+                        strokeBrush = null;
+                        strokeThickness = 0;
+                    }
+                    break;
+
+                case Ellipse ellipse:
+                    if (ellipse.Width <= 0 || ellipse.Height <= 0) return (false, null);
+                    {
+                        // Mesmo raciocínio do Retângulo acima: contorno, não área cheia.
+                        var ellipseGeo = new EllipseGeometry(new Rect(offsetX, offsetY, ellipse.Width, ellipse.Height));
+                        var ellipsePen = new Pen(ellipse.Stroke, Math.Max(1, ellipse.StrokeThickness))
+                        {
+                            LineJoin = PenLineJoin.Round
+                        };
+                        sourceGeometry = ellipseGeo.GetWidenedPathGeometry(ellipsePen);
+                        fillBrush = ellipse.Stroke;
+                        strokeBrush = null;
+                        strokeThickness = 0;
+                    }
+                    break;
+
+                case Line line:
+                    {
+                        var lineGeo = new LineGeometry(new Point(line.X1, line.Y1), new Point(line.X2, line.Y2));
+                        var pen = new Pen(line.Stroke, Math.Max(1, line.StrokeThickness))
+                        {
+                            StartLineCap = PenLineCap.Round,
+                            EndLineCap = PenLineCap.Round
+                        };
+                        // GetWidenedPathGeometry só é caro se a geometria de origem
+                        // já for complexa. Aqui a Line é sempre um traço simples
+                        // (2 pontos), então o custo é baixo — problema só existia
+                        // pro caso "Path" abaixo, que agora tem tratamento especial.
+                        sourceGeometry = lineGeo.GetWidenedPathGeometry(pen);
+                        fillBrush = line.Stroke;
+                    }
+                    break;
+
+                case Path p when p.Data != null:
+                    {
+                        var pen = new Pen(p.Stroke, Math.Max(1, p.StrokeThickness))
+                        {
+                            LineJoin = PenLineJoin.Round,
+                            StartLineCap = PenLineCap.Round,
+                            EndLineCap = PenLineCap.Round
+                        };
+                        sourceGeometry = p.Data.GetWidenedPathGeometry(pen);
+                        fillBrush = p.Stroke;
+                    }
+                    break;
+
+                default:
+                    return (false, null);
+            }
+
+            if (sourceGeometry == null) return (false, null);
+
+            return CutAreaGeometry(sourceGeometry, fillBrush, strokeBrush, strokeThickness, erasePoint, eraserRadius);
+        }
+
+        // Recebe uma geometria que já representa uma ÁREA fechada (não um traço
+        // fino) e faz o corte (Exclude) do círculo da borracha nela. Usado tanto
+        // para a primeira mordida (geometria vinda de GetWidenedPathGeometry)
+        // quanto para mordidas seguintes em cima de um Path já cortado antes.
+        private (bool touched, Path? replacement) CutAreaGeometry(Geometry sourceGeometry, Brush? fillBrush, Brush? strokeBrush, double strokeThickness, Point erasePoint, double eraserRadius)
+        {
+            var eraserGeometry = new EllipseGeometry(erasePoint, eraserRadius, eraserRadius);
+
+            if (!sourceGeometry.Bounds.IntersectsWith(eraserGeometry.Bounds))
+            {
+                return (false, null); // borracha nem chegou perto — não mexe na forma
+            }
+
+            // Se o círculo da borracha cobre toda a área da forma, é mais simples remover
+            // por completo do que gerar uma geometria "vazia".
+            if (eraserGeometry.Bounds.Contains(sourceGeometry.Bounds))
+            {
+                return (true, null);
+            }
+
+            var combined = new CombinedGeometry(GeometryCombineMode.Exclude, sourceGeometry, eraserGeometry);
+
+            // "Achata" o resultado (converte a árvore de CombinedGeometry em um
+            // único PathGeometry de segmentos retos) ANTES de guardar. Isso é o
+            // que impede a geometria de crescer indefinidamente em profundidade
+            // a cada mordida — sem isso, a 10ª mordida estaria recalculando uma
+            // árvore com 10 níveis de CombinedGeometry aninhados a cada frame.
+            PathGeometry resultGeometry = combined.GetFlattenedPathGeometry(0.5, ToleranceType.Absolute);
+            resultGeometry.Freeze();
+
+            var replacement = new Path
+            {
+                Data = resultGeometry,
+                Fill = fillBrush,
+                Stroke = strokeBrush,
+                StrokeThickness = strokeThickness,
+                Tag = "ERASED_SHAPE"
+            };
+
+            return (true, replacement);
         }
 
         private Polyline CreatePartialPolyline(Polyline original, PointCollection points)
@@ -1095,6 +1388,37 @@ namespace TraderPen
             CrosshairH.X1 = 0;
             CrosshairH.X2 = DrawCanvas.ActualWidth;
 
+            // Guia de largura do candle: mostra antes de clicar, some assim que começa a arrastar
+            if (_currentTool == ToolType.Candle && _currentShape == null)
+            {
+                double previewWidth = GetCandleWidth();
+                CandleWidthPreview.Width = previewWidth;
+                Canvas.SetLeft(CandleWidthPreview, currentPoint.X - (previewWidth / 2));
+                Canvas.SetTop(CandleWidthPreview, currentPoint.Y - (CandleWidthPreview.Height / 2));
+                CandleWidthPreview.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                CandleWidthPreview.Visibility = Visibility.Collapsed;
+            }
+
+            // Prévia da borracha: ao contrário do candle, continua visível mesmo
+            // enquanto o botão está pressionado (apagando de verdade).
+            if (_currentTool == ToolType.Eraser)
+            {
+                double eraserPreviewRadius = Math.Max(12, GetEffectiveThickness() * 3);
+                double eraserPreviewDiameter = eraserPreviewRadius * 2;
+                EraserPreview.Width = eraserPreviewDiameter;
+                EraserPreview.Height = eraserPreviewDiameter;
+                Canvas.SetLeft(EraserPreview, currentPoint.X - eraserPreviewRadius);
+                Canvas.SetTop(EraserPreview, currentPoint.Y - eraserPreviewRadius);
+                EraserPreview.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                EraserPreview.Visibility = Visibility.Collapsed;
+            }
+
             if (e.LeftButton == MouseButtonState.Pressed && _currentTool == ToolType.Eraser)
             {
                 ApplyEraserAtPoint(currentPoint);
@@ -1228,6 +1552,23 @@ namespace TraderPen
             if (!_drawingMode) return;
             if (e.ChangedButton != MouseButton.Left) return;
 
+            if (_eraserSession != null)
+            {
+                DrawCanvas.ReleaseMouseCapture();
+
+                // Só registra no Undo se a borracha realmente apagou algo nesse
+                // arraste (evita empilhar um passo "vazio" quando você só
+                // encostou e soltou sem tocar em nenhum desenho).
+                if (_eraserSession.HasChanges)
+                {
+                    _undoManager.RegisterCompletedCommand(_eraserSession);
+                }
+
+                _eraserSession = null;
+                _lastEraserPoint = null;
+                return;
+            }
+
             if (_isMarqueeSelecting)
             {
                 _isMarqueeSelecting = false;
@@ -1288,6 +1629,7 @@ namespace TraderPen
         private void Toolbar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             _isDraggingToolbar = true;
+            _toolbarDragged = false;
             _toolbarDragStart = e.GetPosition(ToolbarBorder);
             ToolbarBorder.CaptureMouse();
             e.Handled = true;
@@ -1298,8 +1640,19 @@ namespace TraderPen
             if (_isDraggingToolbar)
             {
                 var currentPos = e.GetPosition(UIOverlayCanvas);
-                Canvas.SetLeft(ToolbarBorder, currentPos.X - _toolbarDragStart.X);
-                Canvas.SetTop(ToolbarBorder, currentPos.Y - _toolbarDragStart.Y);
+                double newLeft = currentPos.X - _toolbarDragStart.X;
+                double newTop = currentPos.Y - _toolbarDragStart.Y;
+
+                // Só conta como "arrastou de verdade" se moveu mais que alguns pixels
+                // (evita que um clique com a mão trêmula seja confundido com drag).
+                if (Math.Abs(newLeft - Canvas.GetLeft(ToolbarBorder)) > 2 ||
+                    Math.Abs(newTop - Canvas.GetTop(ToolbarBorder)) > 2)
+                {
+                    _toolbarDragged = true;
+                }
+
+                Canvas.SetLeft(ToolbarBorder, newLeft);
+                Canvas.SetTop(ToolbarBorder, newTop);
             }
         }
 
@@ -1309,6 +1662,13 @@ namespace TraderPen
             {
                 _isDraggingToolbar = false;
                 ToolbarBorder.ReleaseMouseCapture();
+
+                // Se não arrastou (só clicou no logo/área vazia da barra), minimiza.
+                if (!_toolbarDragged)
+                {
+                    MinimizeToolbar();
+                }
+
                 e.Handled = true;
             }
         }
@@ -1327,6 +1687,11 @@ namespace TraderPen
         // =========================================================
 
         private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            MinimizeToolbar();
+        }
+
+        private void MinimizeToolbar()
         {
             double left = Canvas.GetLeft(ToolbarBorder);
             double top = Canvas.GetTop(ToolbarBorder);
@@ -1405,6 +1770,38 @@ namespace TraderPen
             }
         }
 
+        private void EraserModeArrow_Click(object sender, RoutedEventArgs e)
+        {
+            EraserModePopup.IsOpen = !EraserModePopup.IsOpen;
+        }
+
+        private void EraserModeOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                _eraserWholeMode = (btn.Tag as string) == "Whole";
+                EraserModeIcon.Text = _eraserWholeMode ? "🧹" : "✂️";
+                SwitchTool(ToolType.Eraser);
+                EraserModePopup.IsOpen = false;
+            }
+        }
+
+        private void RectangleModeArrow_Click(object sender, RoutedEventArgs e)
+        {
+            RectangleModePopup.IsOpen = !RectangleModePopup.IsOpen;
+        }
+
+        private void RectangleModeOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                _rectangleFilledMode = (btn.Tag as string) == "Filled";
+                RectangleModeIcon.Text = _rectangleFilledMode ? "⬛" : "🔲";
+                SwitchTool(ToolType.Rectangle);
+                RectangleModePopup.IsOpen = false;
+            }
+        }
+
         private void ColorButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag != null)
@@ -1474,6 +1871,202 @@ namespace TraderPen
             ClearSelection();
             var cmd = new ClearAllCommand(DrawCanvas);
             _undoManager.ExecuteCommand(cmd);
+        }
+
+        // ================== Abas (histórico de telas da aula) ==================
+
+        /// <summary>
+        /// Guarda o que está no canvas agora dentro da aba ativa (se ela já existia)
+        /// ou, se for trabalho novo ainda não numerado, transforma em uma aba nova.
+        /// Não mexe no que está visível na tela — só atualiza o "arquivo" interno.
+        /// </summary>
+        private void SaveCurrentIntoActiveTabSlot()
+        {
+            var currentElements = DrawCanvas.Children.OfType<UIElement>().ToList();
+
+            if (_activeTab != null)
+            {
+                // Já era uma aba salva (reaberta pra editar) - atualiza o conteúdo dela
+                _activeTab.Elements = currentElements;
+                _activeTab.UndoManager = _undoManager;
+            }
+            else if (currentElements.Count > 0)
+            {
+                // Trabalho novo, ainda sem número - vira a próxima aba
+                var tab = new DrawingTab
+                {
+                    Number = _nextTabNumber++,
+                    Elements = currentElements,
+                    UndoManager = _undoManager
+                };
+                _savedTabs.Add(tab);
+                AddTabButton(tab);
+            }
+        }
+
+        private void NovaAbaButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (DrawCanvas.Children.Count == 0 && _activeTab == null) return; // nada pra salvar ainda
+
+            ClearSelection();
+            SaveCurrentIntoActiveTabSlot();
+
+            DrawCanvas.Children.Clear();
+            _undoManager = new UndoManager();
+            _activeTab = null;
+            HighlightTabButton(null);
+        }
+
+        private void TabButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn || btn.Tag is not int tabNumber) return;
+
+            var tab = _savedTabs.FirstOrDefault(t => t.Number == tabNumber);
+            if (tab == null || tab == _activeTab) return;
+
+            ClearSelection();
+            SaveCurrentIntoActiveTabSlot(); // preserva o que está na tela antes de trocar
+
+            DrawCanvas.Children.Clear();
+            foreach (var el in tab.Elements)
+                DrawCanvas.Children.Add(el);
+
+            _undoManager = tab.UndoManager;
+            _activeTab = tab;
+            HighlightTabButton(tabNumber);
+        }
+
+        private void AddTabButton(DrawingTab tab)
+        {
+            var closeButton = new Button
+            {
+                Content = "×",
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                Width = 16,
+                Height = 16,
+                Padding = new Thickness(0),
+                Margin = new Thickness(6, 0, 0, 0),
+                Background = Brushes.Transparent,
+                Foreground = Brushes.IndianRed,
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                Tag = tab.Number,
+                ToolTip = "Fechar esta aba"
+            };
+            closeButton.Click += CloseTabButton_Click;
+
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(new TextBlock { Text = $"Aba {tab.Number}", VerticalAlignment = VerticalAlignment.Center });
+            content.Children.Add(closeButton);
+
+            var btn = new Button
+            {
+                Content = content,
+                Tag = tab.Number,
+                Style = (Style)FindResource("ThicknessButtonStyle")
+            };
+            btn.Click += TabButton_Click;
+            TabsContainer.Children.Add(btn);
+        }
+
+        private void CloseTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button closeBtn || closeBtn.Tag is not int tabNumber) return;
+
+            var tab = _savedTabs.FirstOrDefault(t => t.Number == tabNumber);
+            if (tab == null) return;
+
+            var tabButton = TabsContainer.Children.OfType<Button>().FirstOrDefault(b => b.Tag is int n && n == tabNumber);
+            if (tabButton != null) TabsContainer.Children.Remove(tabButton);
+
+            _savedTabs.Remove(tab);
+
+            // Se a aba fechada era a que estava sendo mostrada, volta pra uma tela em branco
+            if (_activeTab == tab)
+            {
+                DrawCanvas.Children.Clear();
+                _undoManager = new UndoManager();
+                _activeTab = null;
+                HighlightTabButton(null);
+            }
+        }
+
+        private void HighlightTabButton(int? activeNumber)
+        {
+            foreach (var child in TabsContainer.Children)
+            {
+                if (child is Button btn && btn.Tag is int tagNumber)
+                {
+                    bool isSelected = tagNumber == activeNumber;
+                    btn.BorderBrush = isSelected ? Brushes.Cyan : (Brush)new BrushConverter().ConvertFrom("#3A3A3A")!;
+                    btn.BorderThickness = new Thickness(isSelected ? 2 : 1);
+                }
+            }
+        }
+
+        private void ExportarAulaButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Garante que o que está na tela agora entra na lista de abas antes de exportar
+            SaveCurrentIntoActiveTabSlot();
+
+            if (_savedTabs.Count == 0)
+            {
+                MessageBox.Show("Ainda não tem nenhuma aba salva pra exportar.", "Exportar aula",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new NameInputWindow { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+
+            string pastaBase = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "TraderPen", dialog.EnteredName);
+
+            // Guarda o que estava sendo mostrado agora, pra devolver no final
+            var elementosAtivosOriginais = DrawCanvas.Children.OfType<UIElement>().ToList();
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(pastaBase);
+
+                foreach (var tab in _savedTabs.OrderBy(t => t.Number))
+                {
+                    DrawCanvas.Children.Clear();
+                    foreach (var el in tab.Elements)
+                        DrawCanvas.Children.Add(el);
+
+                    DrawCanvas.UpdateLayout();
+
+                    var bitmap = new RenderTargetBitmap(
+                        (int)DrawCanvas.ActualWidth, (int)DrawCanvas.ActualHeight,
+                        96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(DrawCanvas);
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+                    string caminhoArquivo = System.IO.Path.Combine(pastaBase, $"Aba {tab.Number}.png");
+                    using var stream = new System.IO.FileStream(caminhoArquivo, System.IO.FileMode.Create);
+                    encoder.Save(stream);
+                }
+
+                MessageBox.Show($"Aula exportada em:\n{pastaBase}", "Exportar aula",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Não consegui exportar: {ex.Message}", "Erro ao exportar",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // Devolve a tela pro estado em que estava antes da exportação
+                DrawCanvas.Children.Clear();
+                foreach (var el in elementosAtivosOriginais)
+                    DrawCanvas.Children.Add(el);
+            }
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)

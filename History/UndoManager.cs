@@ -17,6 +17,15 @@ namespace TraderPen.History
             _redoStack.Clear(); // Limpa o redo sempre que uma nova ação ocorre
         }
 
+        // Registra no histórico um comando cujas mudanças JÁ foram aplicadas
+        // "ao vivo" (ex.: a sessão de borracha, que vai apagando enquanto
+        // você arrasta o mouse) — sem chamar Execute() de novo, só empilha.
+        public void RegisterCompletedCommand(IUndoableCommand command)
+        {
+            _undoStack.Push(command);
+            _redoStack.Clear();
+        }
+
         public void Undo()
         {
             if (_undoStack.Count == 0) return;

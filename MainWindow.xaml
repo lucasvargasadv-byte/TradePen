@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="TraderPen Overlay"
-        Icon="/TraderPen;component/Assets/AppIcon.ico"
+        Icon="Assets/AppIcon.ico"
         Topmost="True"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -167,6 +167,25 @@
                   IsHitTestVisible="False"
                   Visibility="Collapsed"/>
 
+            <!-- Prévia da borracha: quadrado que mostra a área de apagar -->
+            <Rectangle x:Name="EraserPreview"
+                     Stroke="#DD555555"
+                     StrokeThickness="1.5"
+                     StrokeDashArray="2,2"
+                     Fill="#33808080"
+                     IsHitTestVisible="False"
+                     Visibility="Collapsed"/>
+
+            <!-- Guia de largura do Candle: mostra o corpo do candle antes de clicar -->
+            <Rectangle x:Name="CandleWidthPreview"
+                       Height="24"
+                       Stroke="#CCFFC107"
+                       StrokeThickness="1.5"
+                       StrokeDashArray="3,2"
+                       Fill="Transparent"
+                       IsHitTestVisible="False"
+                       Visibility="Collapsed"/>
+
             <TextBlock x:Name="ModeIndicator" 
                        Text="MOUSE MODE (Pressione F9 para desenhar)" 
                        Foreground="White" 
@@ -229,12 +248,28 @@
                                 <TextBlock Text="MARCA (2)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Button Tag="Rectangle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Retângulo (3)">
-                            <StackPanel>
-                                <TextBlock Text="🔲" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="RETÂNG. (3)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
+                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                            <Button Tag="Rectangle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Retângulo (3)" Margin="0">
+                                <StackPanel>
+                                    <TextBlock x:Name="RectangleModeIcon" Text="🔲" FontSize="18" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="RETÂNG. (3)" Style="{StaticResource ToolLabelStyle}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="RectangleModeArrow" Click="RectangleModeArrow_Click"
+                                    Width="16" Height="14"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,2,2,0"
+                                    Background="#3A3A3A" BorderThickness="0" Padding="0"
+                                    Cursor="Hand" ToolTip="Escolher preenchimento do retângulo">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                                            <TextBlock Text="▾" FontSize="10" Foreground="#CCCCCC" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
                         <Button Tag="Ellipse" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Círculo (4)">
                             <StackPanel>
                                 <TextBlock Text="⭕" FontSize="18" HorizontalAlignment="Center"/>
@@ -283,12 +318,28 @@
                                 <TextBlock Text="TEXTO (T)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Button Tag="Eraser" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Borracha (E)">
-                            <StackPanel>
-                                <TextBlock Text="🧹" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="BORR. (E)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
+                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                            <Button Tag="Eraser" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Borracha (E)" Margin="0">
+                                <StackPanel>
+                                    <TextBlock x:Name="EraserModeIcon" Text="🧹" FontSize="18" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="BORR. (E)" Style="{StaticResource ToolLabelStyle}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="EraserModeArrow" Click="EraserModeArrow_Click"
+                                    Width="16" Height="14"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,2,2,0"
+                                    Background="#3A3A3A" BorderThickness="0" Padding="0"
+                                    Cursor="Hand" ToolTip="Escolher modo da borracha">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                                            <TextBlock Text="▾" FontSize="10" Foreground="#CCCCCC" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
                     </StackPanel>
 
                     <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
@@ -310,6 +361,25 @@
                         <Button Content="• Fina" Tag="2" Click="ThicknessButton_Click" Style="{StaticResource ThicknessButtonStyle}"/>
                         <Button Content="━ Padrão" Tag="4" Click="ThicknessButton_Click" Style="{StaticResource ThicknessButtonStyle}"/>
                         <Button Content="█ Destaque" Tag="8" Click="ThicknessButton_Click" Style="{StaticResource ThicknessButtonStyle}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+
+                    <!-- Abas (histórico de telas da aula) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="NovaAbaButton_Click" ToolTip="Salvar tela atual e começar uma aba nova">
+                            <StackPanel>
+                                <TextBlock Text="➕" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="NOVA ABA" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="TabsContainer" Orientation="Horizontal" VerticalAlignment="Center"/>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="ExportarAulaButton_Click" ToolTip="Exportar todas as abas da aula como imagens">
+                            <StackPanel>
+                                <TextBlock Text="💾" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="EXPORTAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
 
                     <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
@@ -628,6 +698,72 @@
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Popup com as opções de modo da borracha -->
+            <Popup x:Name="EraserModePopup"
+                   PlacementTarget="{Binding ElementName=EraserModeArrow}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade">
+                <Border Background="#1C1C1E"
+                        BorderBrush="#3A3A3A"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="4"
+                        Margin="0,4,0,0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="14" ShadowDepth="3" Color="Black" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <Button Click="EraserModeOption_Click" Tag="Whole" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🧹" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="Objeto Inteiro" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="EraserModeOption_Click" Tag="Pieces" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="✂️" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="Em Pedaços" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Popup com as opções de preenchimento do retângulo -->
+            <Popup x:Name="RectangleModePopup"
+                   PlacementTarget="{Binding ElementName=RectangleModeArrow}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade">
+                <Border Background="#1C1C1E"
+                        BorderBrush="#3A3A3A"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="4"
+                        Margin="0,4,0,0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="14" ShadowDepth="3" Color="Black" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <Button Click="RectangleModeOption_Click" Tag="Outline" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🔲" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="Vazado" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="RectangleModeOption_Click" Tag="Filled" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⬛" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="Preenchido" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
             </Popup>
