@@ -2,3 +2,7 @@ bin/
 obj/
 *.user
 .vscode/
+publish/
+*.zip
+bin/
+obj/
