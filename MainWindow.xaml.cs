@@ -14,6 +14,9 @@ using TraderPen.History;
 using TraderPen.Input;
 using TraderPen.Overlay;
 using TraderPen.Tools;
+using DrawingBitmap = System.Drawing.Bitmap;
+using DrawingGraphics = System.Drawing.Graphics;
+using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 
 namespace TraderPen
 {
@@ -41,9 +44,23 @@ namespace TraderPen
         // ---- Seleção múltipla / Arraste em grupo ----
         private readonly List<UIElement> _selectedElements = new();
         private readonly List<Rectangle> _selectionBoxes = new();
+        private readonly List<Rectangle> _resizeHandles = new();
         private Point _dragStartPoint;
         private Vector _totalDragDisplacement;
         private bool _isDraggingElement = false;
+        private bool _isResizingElement = false;
+        private string? _resizeHandleDirection;
+        private UIElement? _resizeElement;
+        private Point _resizeStartPoint;
+        private Rect _resizeOriginalBounds;
+        private Rect _resizeOriginalLocalBounds;
+        private Transform? _resizeOriginalTransform;
+        private readonly Dictionary<Shape, double> _resizeOriginalStrokeThickness = new();
+        private readonly Dictionary<TextBlock, double> _resizeOriginalFontSizes = new();
+        private readonly Dictionary<TextBlock, Transform?> _resizeOriginalTextTransforms = new();
+        private readonly Dictionary<Shape, double> _strokeThicknessBaselines = new();
+        private readonly Dictionary<TextBlock, double> _fontSizeBaselines = new();
+        private readonly Dictionary<TextBlock, Transform?> _textTransformBaselines = new();
 
         // ---- Marquee (caixa de seleção por área) ----
         private bool _isMarqueeSelecting = false;
@@ -74,6 +91,12 @@ namespace TraderPen
         // ---- Modo do retângulo: vazado (contorno) ou preenchido ----
         private bool _rectangleFilledMode = false; // false = vazado (padrão atual); true = preenchido
 
+        // ---- Rótulo opcional para linhas de estrutura ----
+        private string? _lineLabel;
+
+        // ---- Tipo de zona desenhada pelo botão FVG ----
+        private string _zoneMode = "FVG";
+
         // Sessão de borracha em andamento (do MouseDown até o MouseUp). Enquanto
         // não-nula, ApplyEraserAtPoint aplica os cortes direto na tela, sem gerar
         // um Undo por frame — tudo vira UM único passo de Undo ao soltar o mouse.
@@ -93,6 +116,11 @@ namespace TraderPen
         private bool _bubbleDragged = false;
         private Point _bubbleDragStart;
 
+        // ---- Modo apresentação ----
+        private bool _presentationMode = false;
+        private Visibility _toolbarVisibilityBeforePresentation;
+        private Visibility _bubbleVisibilityBeforePresentation;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -101,6 +129,7 @@ namespace TraderPen
             Top = SystemParameters.VirtualScreenTop;
             Width = SystemParameters.VirtualScreenWidth;
             Height = SystemParameters.VirtualScreenHeight;
+            Loaded += MainWindow_Loaded;
 
             SourceInitialized += MainWindow_SourceInitialized;
             KeyDown += MainWindow_KeyDown;
@@ -114,6 +143,16 @@ namespace TraderPen
                 var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(400));
                 ModeIndicator.BeginAnimation(OpacityProperty, fadeOut);
             };
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            var visibilityBeforeMeasure = ToolbarBorder.Visibility;
+            ToolbarBorder.Visibility = Visibility.Visible;
+            UpdateLayout();
+            Canvas.SetLeft(ToolbarBorder, 20);
+            Canvas.SetTop(ToolbarBorder, Math.Max(20, ActualHeight - ToolbarBorder.ActualHeight - 30));
+            ToolbarBorder.Visibility = visibilityBeforeMeasure;
         }
 
         /// <summary>
@@ -143,6 +182,8 @@ namespace TraderPen
 
         private void ToggleMode()
         {
+            if (_presentationMode) return;
+
             var hwnd = new WindowInteropHelper(this).Handle;
             _drawingMode = !_drawingMode;
 
@@ -202,7 +243,8 @@ namespace TraderPen
 
         private void UpdateCrosshairVisibility()
         {
-            bool showCrosshair = _drawingMode && _currentTool != ToolType.Select;
+            bool showCrosshair = DrawCanvas.Visibility == Visibility.Visible &&
+                (_presentationMode || (_drawingMode && _currentTool != ToolType.Select));
             CrosshairV.Visibility = showCrosshair ? Visibility.Visible : Visibility.Collapsed;
             CrosshairH.Visibility = showCrosshair ? Visibility.Visible : Visibility.Collapsed;
             DrawCanvas.Cursor = showCrosshair ? Cursors.None : Cursors.Arrow;
@@ -212,8 +254,29 @@ namespace TraderPen
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
-            if (!_drawingMode) return;
             if (e.OriginalSource is TextBox) return;
+
+            if (e.Key == Key.Space)
+            {
+                if (_drawingMode || _presentationMode)
+                {
+                    TogglePresentationMode();
+                    e.Handled = true;
+                }
+                return;
+            }
+
+            if (_presentationMode)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    TogglePresentationMode();
+                    e.Handled = true;
+                }
+                return;
+            }
+
+            if (!_drawingMode) return;
 
             if (e.Key == Key.Enter || e.Key == Key.Escape)
             {
@@ -239,15 +302,15 @@ namespace TraderPen
                 ClearSelection();
             }
             else if (e.Key == Key.S) SwitchTool(ToolType.Select);
-            else if (e.Key == Key.D1 || e.Key == Key.NumPad1) SwitchTool(ToolType.Pen);
-            else if (e.Key == Key.D2 || e.Key == Key.NumPad2) SwitchTool(ToolType.Highlighter);
-            else if (e.Key == Key.D3 || e.Key == Key.NumPad3) SwitchTool(ToolType.Rectangle);
-            else if (e.Key == Key.D4 || e.Key == Key.NumPad4) SwitchTool(ToolType.Ellipse);
-            else if (e.Key == Key.D5 || e.Key == Key.NumPad5) SwitchTool(ToolType.Line);
-            else if (e.Key == Key.D6 || e.Key == Key.NumPad6) SwitchTool(ToolType.Arrow);
-            else if (e.Key == Key.D7 || e.Key == Key.NumPad7) SwitchTool(ToolType.Path);
-            else if (e.Key == Key.D8 || e.Key == Key.NumPad8) SwitchTool(ToolType.Candle);
-            else if (e.Key == Key.D9 || e.Key == Key.NumPad9) SwitchTool(ToolType.FVG);
+            else if (e.Key == Key.D1 || e.Key == Key.NumPad1) SwitchTool(ToolType.Candle);
+            else if (e.Key == Key.D2 || e.Key == Key.NumPad2) SwitchTool(ToolType.FVG);
+            else if (e.Key == Key.D3 || e.Key == Key.NumPad3) SwitchTool(ToolType.Line);
+            else if (e.Key == Key.D4 || e.Key == Key.NumPad4) SwitchTool(ToolType.Path);
+            else if (e.Key == Key.D5 || e.Key == Key.NumPad5) SwitchTool(ToolType.Arrow);
+            else if (e.Key == Key.D6 || e.Key == Key.NumPad6) SwitchTool(ToolType.Pen);
+            else if (e.Key == Key.D7 || e.Key == Key.NumPad7) SwitchTool(ToolType.Highlighter);
+            else if (e.Key == Key.D8 || e.Key == Key.NumPad8) SwitchTool(ToolType.Rectangle);
+            else if (e.Key == Key.D9 || e.Key == Key.NumPad9) SwitchTool(ToolType.Ellipse);
             else if (e.Key == Key.T) SwitchTool(ToolType.Text);
             else if (e.Key == Key.E) SwitchTool(ToolType.Eraser);
             else if (e.Key == Key.M) SwitchTool(ToolType.Select);
@@ -276,6 +339,35 @@ namespace TraderPen
             ModeIndicator.Text = $"DRAWING MODE | Ferramenta: {_currentTool} (Pressione F9 para soltar o mouse)";
             ShowModeIndicatorTemporarily();
             HighlightToolButton(tool.ToString());
+            UpdateCrosshairVisibility();
+        }
+
+        private void TogglePresentationMode()
+        {
+            if (_presentationMode)
+            {
+                _presentationMode = false;
+                ToolbarBorder.Visibility = _toolbarVisibilityBeforePresentation;
+                MinimizedBubble.Visibility = _bubbleVisibilityBeforePresentation;
+                ModeIndicator.Visibility = Visibility.Visible;
+                DrawCanvas.IsHitTestVisible = true;
+                UIOverlayCanvas.IsHitTestVisible = true;
+                UpdateCrosshairVisibility();
+                return;
+            }
+
+            _presentationMode = true;
+            _toolbarVisibilityBeforePresentation = ToolbarBorder.Visibility;
+            _bubbleVisibilityBeforePresentation = MinimizedBubble.Visibility;
+
+            ShortcutsPopup.IsOpen = false;
+            ToolbarBorder.Visibility = Visibility.Collapsed;
+            MinimizedBubble.Visibility = Visibility.Collapsed;
+            ModeIndicator.Visibility = Visibility.Collapsed;
+            CandleWidthPreview.Visibility = Visibility.Collapsed;
+            EraserPreview.Visibility = Visibility.Collapsed;
+            DrawCanvas.IsHitTestVisible = true;
+            UIOverlayCanvas.IsHitTestVisible = false;
             UpdateCrosshairVisibility();
         }
 
@@ -380,7 +472,7 @@ namespace TraderPen
 
         private bool IsSelectionVisual(UIElement el)
         {
-            return _selectionBoxes.Contains(el) || el == _marqueeBox;
+            return _selectionBoxes.Contains(el) || _resizeHandles.Contains(el) || el == _marqueeBox;
         }
 
         private UIElement? FindDrawingElementAtPoint(UIElement? clickedSource)
@@ -400,9 +492,21 @@ namespace TraderPen
 
         private void EnsureTranslateTransform(UIElement element)
         {
-            if (!(element.RenderTransform is TranslateTransform))
+            if (element.RenderTransform is null)
             {
                 element.RenderTransform = new TranslateTransform();
+            }
+            else if (element.RenderTransform is not TranslateTransform && element.RenderTransform is not TransformGroup)
+            {
+                var group = new TransformGroup();
+                group.Children.Add(element.RenderTransform);
+                group.Children.Add(new TranslateTransform());
+                element.RenderTransform = group;
+            }
+            else if (element.RenderTransform is TransformGroup group &&
+                     !group.Children.OfType<TranslateTransform>().Any())
+            {
+                group.Children.Add(new TranslateTransform());
             }
         }
 
@@ -476,6 +580,22 @@ namespace TraderPen
             return localBounds;
         }
 
+        private Rect GetTransformedElementCanvasBounds(UIElement element)
+        {
+            Rect localBounds = GetElementLocalBounds(element);
+            if (localBounds.IsEmpty) return Rect.Empty;
+
+            if (element.RenderTransform is Transform transform)
+            {
+                localBounds = transform.TransformBounds(localBounds);
+            }
+
+            double left = Canvas.GetLeft(element);
+            double top = Canvas.GetTop(element);
+            localBounds.Offset(double.IsNaN(left) ? 0 : left, double.IsNaN(top) ? 0 : top);
+            return localBounds;
+        }
+
         private void SelectElementsInRect(Rect area, bool addToExisting)
         {
             if (!addToExisting)
@@ -488,13 +608,8 @@ namespace TraderPen
                 if (IsSelectionVisual(child)) continue;
                 if (child is TextBox) continue; // não seleciona caixa de texto ainda em edição
 
-                Rect bounds = GetElementCanvasBounds(child);
+                Rect bounds = GetTransformedElementCanvasBounds(child);
                 if (bounds.IsEmpty) continue;
-
-                if (child.RenderTransform is Transform transform)
-                {
-                    bounds = transform.TransformBounds(bounds);
-                }
 
                 if (area.IntersectsWith(bounds) && !_selectedElements.Contains(child))
                 {
@@ -508,11 +623,23 @@ namespace TraderPen
 
         private void ClearSelection()
         {
+            if (_isResizingElement)
+            {
+                _isResizingElement = false;
+                _resizeElement = null;
+                DrawCanvas.ReleaseMouseCapture();
+            }
+
             foreach (var box in _selectionBoxes)
             {
-                DrawCanvas.Children.Remove(box);
+                UIOverlayCanvas.Children.Remove(box);
             }
             _selectionBoxes.Clear();
+            foreach (var handle in _resizeHandles)
+            {
+                UIOverlayCanvas.Children.Remove(handle);
+            }
+            _resizeHandles.Clear();
             _selectedElements.Clear();
             _isDraggingElement = false;
         }
@@ -521,18 +648,19 @@ namespace TraderPen
         {
             foreach (var box in _selectionBoxes)
             {
-                DrawCanvas.Children.Remove(box);
+                UIOverlayCanvas.Children.Remove(box);
             }
             _selectionBoxes.Clear();
 
+            foreach (var handle in _resizeHandles)
+            {
+                UIOverlayCanvas.Children.Remove(handle);
+            }
+            _resizeHandles.Clear();
+
             foreach (var el in _selectedElements)
             {
-                Rect bounds = GetElementCanvasBounds(el);
-
-                if (el.RenderTransform is Transform transform)
-                {
-                    bounds = transform.TransformBounds(bounds);
-                }
+                Rect bounds = GetTransformedElementCanvasBounds(el);
 
                 var box = new Rectangle
                 {
@@ -540,7 +668,8 @@ namespace TraderPen
                     StrokeThickness = 1.5,
                     StrokeDashArray = new DoubleCollection { 4, 2 },
                     Fill = Brushes.Transparent,
-                    IsHitTestVisible = false
+                    IsHitTestVisible = false,
+                    Visibility = DrawCanvas.Visibility
                 };
 
                 Canvas.SetLeft(box, bounds.Left - 4);
@@ -548,8 +677,257 @@ namespace TraderPen
                 box.Width = Math.Max(8, bounds.Width + 8);
                 box.Height = Math.Max(8, bounds.Height + 8);
 
-                DrawCanvas.Children.Add(box);
+                UIOverlayCanvas.Children.Add(box);
                 _selectionBoxes.Add(box);
+            }
+
+            if (_selectedElements.Count == 1)
+            {
+                Rect selectedBounds = GetTransformedElementCanvasBounds(_selectedElements[0]);
+                AddResizeHandles(selectedBounds);
+            }
+        }
+
+        private void AddResizeHandles(Rect bounds)
+        {
+            var positions = GetResizeHandlePositions(bounds);
+
+            foreach (var position in positions)
+            {
+                var handle = new Rectangle
+                {
+                    Width = 14,
+                    Height = 14,
+                    Fill = Brushes.Yellow,
+                    Stroke = Brushes.Black,
+                    StrokeThickness = 1,
+                    Visibility = DrawCanvas.Visibility,
+                    Tag = position.Key,
+                    Cursor = position.Key switch
+                    {
+                        "N" or "S" => Cursors.SizeNS,
+                        "E" or "W" => Cursors.SizeWE,
+                        "NE" or "SW" => Cursors.SizeNESW,
+                        _ => Cursors.SizeNWSE
+                    }
+                };
+                Canvas.SetLeft(handle, position.Value.X);
+                Canvas.SetTop(handle, position.Value.Y);
+                handle.MouseLeftButtonDown += ResizeHandle_MouseLeftButtonDown;
+                UIOverlayCanvas.Children.Add(handle);
+                _resizeHandles.Add(handle);
+            }
+        }
+
+        private static Dictionary<string, Point> GetResizeHandlePositions(Rect bounds)
+        {
+            double left = bounds.Left - 7;
+            double top = bounds.Top - 7;
+            double right = bounds.Right - 7;
+            double bottom = bounds.Bottom - 7;
+            double centerX = bounds.Left + (bounds.Width / 2) - 7;
+            double centerY = bounds.Top + (bounds.Height / 2) - 7;
+
+            return new Dictionary<string, Point>
+            {
+                ["NW"] = new Point(left, top),
+                ["N"] = new Point(centerX, top),
+                ["NE"] = new Point(right, top),
+                ["E"] = new Point(right, centerY),
+                ["SE"] = new Point(right, bottom),
+                ["S"] = new Point(centerX, bottom),
+                ["SW"] = new Point(left, bottom),
+                ["W"] = new Point(left, centerY)
+            };
+        }
+
+        private void UpdateSelectionVisuals()
+        {
+            if (_selectedElements.Count != 1 || _selectionBoxes.Count != 1) return;
+
+            Rect bounds = GetTransformedElementCanvasBounds(_selectedElements[0]);
+            var box = _selectionBoxes[0];
+            Canvas.SetLeft(box, bounds.Left - 4);
+            Canvas.SetTop(box, bounds.Top - 4);
+            box.Width = Math.Max(8, bounds.Width + 8);
+            box.Height = Math.Max(8, bounds.Height + 8);
+
+            var positions = GetResizeHandlePositions(bounds);
+            foreach (var handle in _resizeHandles)
+            {
+                if (handle.Tag is string direction && positions.TryGetValue(direction, out Point position))
+                {
+                    Canvas.SetLeft(handle, position.X);
+                    Canvas.SetTop(handle, position.Y);
+                }
+            }
+        }
+
+        private void SetSelectionVisualsVisibility(Visibility visibility)
+        {
+            foreach (var box in _selectionBoxes)
+            {
+                box.Visibility = visibility;
+            }
+
+            foreach (var handle in _resizeHandles)
+            {
+                handle.Visibility = visibility;
+            }
+        }
+
+        private void ResizeHandle_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not Rectangle handle || _selectedElements.Count != 1) return;
+
+            _resizeElement = _selectedElements[0];
+            _resizeHandleDirection = handle.Tag?.ToString();
+            _resizeStartPoint = e.GetPosition(DrawCanvas);
+            _resizeOriginalLocalBounds = GetElementLocalBounds(_resizeElement);
+            _resizeOriginalBounds = GetTransformedElementCanvasBounds(_resizeElement);
+            _resizeOriginalTransform = _resizeElement.RenderTransform?.Clone();
+            _resizeOriginalStrokeThickness.Clear();
+            _resizeOriginalFontSizes.Clear();
+            _resizeOriginalTextTransforms.Clear();
+            foreach (var shape in GetDescendantShapes(_resizeElement))
+            {
+                if (!_strokeThicknessBaselines.ContainsKey(shape))
+                {
+                    _strokeThicknessBaselines[shape] = shape.StrokeThickness;
+                }
+                _resizeOriginalStrokeThickness[shape] = shape.StrokeThickness;
+            }
+            foreach (var textBlock in GetDescendantTextBlocks(_resizeElement))
+            {
+                if (!_fontSizeBaselines.ContainsKey(textBlock))
+                {
+                    _fontSizeBaselines[textBlock] = textBlock.FontSize;
+                    _textTransformBaselines[textBlock] = textBlock.RenderTransform?.Clone();
+                }
+                _resizeOriginalFontSizes[textBlock] = textBlock.FontSize;
+                _resizeOriginalTextTransforms[textBlock] = textBlock.RenderTransform?.Clone();
+            }
+            _isResizingElement = true;
+            _isDraggingElement = false;
+            DrawCanvas.CaptureMouse();
+            e.Handled = true;
+        }
+
+        private void ResizeSelectedElement(Point currentPoint)
+        {
+            if (_resizeElement == null || _resizeHandleDirection == null) return;
+
+            Vector delta = currentPoint - _resizeStartPoint;
+            Rect bounds = _resizeOriginalBounds;
+            const double minimumSize = 8;
+
+            if (_resizeHandleDirection.Contains("W"))
+            {
+                bounds.X = Math.Min(bounds.Right - minimumSize, bounds.Left + delta.X);
+                bounds.Width = _resizeOriginalBounds.Right - bounds.Left;
+            }
+            else if (_resizeHandleDirection.Contains("E"))
+            {
+                bounds.Width = Math.Max(minimumSize, _resizeOriginalBounds.Width + delta.X);
+            }
+
+            if (_resizeHandleDirection.Contains("N"))
+            {
+                bounds.Y = Math.Min(bounds.Bottom - minimumSize, bounds.Top + delta.Y);
+                bounds.Height = _resizeOriginalBounds.Bottom - bounds.Top;
+            }
+            else if (_resizeHandleDirection.Contains("S"))
+            {
+                bounds.Height = Math.Max(minimumSize, _resizeOriginalBounds.Height + delta.Y);
+            }
+
+            if (_resizeHandleDirection.Length == 2 &&
+                (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)))
+            {
+                double aspectRatio = _resizeOriginalBounds.Width / _resizeOriginalBounds.Height;
+                if (bounds.Width / bounds.Height > aspectRatio)
+                {
+                    bounds.Width = bounds.Height * aspectRatio;
+                }
+                else
+                {
+                    bounds.Height = bounds.Width / aspectRatio;
+                }
+
+                if (_resizeHandleDirection.Contains("W")) bounds.X = _resizeOriginalBounds.Right - bounds.Width;
+                if (_resizeHandleDirection.Contains("N")) bounds.Y = _resizeOriginalBounds.Bottom - bounds.Height;
+            }
+
+            Rect localBounds = _resizeOriginalLocalBounds;
+            if (localBounds.IsEmpty || localBounds.Width <= 0 || localBounds.Height <= 0) return;
+
+            double canvasLeft = Canvas.GetLeft(_resizeElement);
+            double canvasTop = Canvas.GetTop(_resizeElement);
+            if (double.IsNaN(canvasLeft)) canvasLeft = 0;
+            if (double.IsNaN(canvasTop)) canvasTop = 0;
+
+            double scaleX = bounds.Width / localBounds.Width;
+            double scaleY = bounds.Height / localBounds.Height;
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new ScaleTransform(scaleX, scaleY));
+            transformGroup.Children.Add(new TranslateTransform(
+                bounds.Left - canvasLeft - (localBounds.Left * scaleX),
+                bounds.Top - canvasTop - (localBounds.Top * scaleY)));
+            _resizeElement.RenderTransform = transformGroup;
+            // A maior escala impede que um esticamento em qualquer direção
+            // aumente visualmente a espessura do traço.
+            double strokeScale = Math.Max(scaleX, scaleY);
+            foreach (var pair in _resizeOriginalStrokeThickness)
+            {
+                pair.Key.StrokeThickness = _strokeThicknessBaselines[pair.Key] / Math.Max(0.01, strokeScale);
+            }
+            double textScale = Math.Max(0.01, scaleY);
+            foreach (var pair in _resizeOriginalFontSizes)
+            {
+                pair.Key.FontSize = _fontSizeBaselines[pair.Key];
+                pair.Key.RenderTransform = new ScaleTransform(
+                    1 / Math.Max(0.01, scaleX),
+                    1 / textScale);
+                pair.Key.RenderTransformOrigin = new Point(0, 0);
+            }
+            UpdateSelectionVisuals();
+        }
+
+        private static IEnumerable<Shape> GetDescendantShapes(UIElement element)
+        {
+            if (element is Shape shape)
+            {
+                yield return shape;
+            }
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
+            {
+                if (VisualTreeHelper.GetChild(element, i) is UIElement child)
+                {
+                    foreach (var descendant in GetDescendantShapes(child))
+                    {
+                        yield return descendant;
+                    }
+                }
+            }
+        }
+
+        private static IEnumerable<TextBlock> GetDescendantTextBlocks(UIElement element)
+        {
+            if (element is TextBlock textBlock)
+            {
+                yield return textBlock;
+            }
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(element); i++)
+            {
+                if (VisualTreeHelper.GetChild(element, i) is UIElement child)
+                {
+                    foreach (var descendant in GetDescendantTextBlocks(child))
+                    {
+                        yield return descendant;
+                    }
+                }
             }
         }
 
@@ -559,6 +937,17 @@ namespace TraderPen
             {
                 translate.X += delta.X;
                 translate.Y += delta.Y;
+            }
+            else if (element.RenderTransform is TransformGroup group)
+            {
+                var groupTranslate = group.Children.OfType<TranslateTransform>().FirstOrDefault();
+                if (groupTranslate == null)
+                {
+                    groupTranslate = new TranslateTransform();
+                    group.Children.Add(groupTranslate);
+                }
+                groupTranslate.X += delta.X;
+                groupTranslate.Y += delta.Y;
             }
             else
             {
@@ -570,6 +959,7 @@ namespace TraderPen
 
         private void DrawCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (_presentationMode) return;
             if (!_drawingMode) return;
 
             var currentClick = e.GetPosition(DrawCanvas);
@@ -687,7 +1077,7 @@ namespace TraderPen
                     break;
 
                 case ToolType.Line:
-                    _currentShape = new Line
+                    var line = new Line
                     {
                         Stroke = brush,
                         StrokeThickness = thickness,
@@ -698,6 +1088,40 @@ namespace TraderPen
                         StrokeStartLineCap = PenLineCap.Round,
                         StrokeEndLineCap = PenLineCap.Round
                     };
+                    if (_lineLabel == null)
+                    {
+                        _currentShape = line;
+                    }
+                    else
+                    {
+                        line.X1 = 0;
+                        line.Y1 = 0;
+                        line.X2 = 0;
+                        line.Y2 = 0;
+                        var lineGroup = new Canvas
+                        {
+                            Background = Brushes.Transparent,
+                            IsHitTestVisible = true
+                        };
+                        lineGroup.Children.Add(line);
+                        var label = new TextBlock
+                        {
+                            Text = _lineLabel,
+                            Foreground = brush,
+                            FontSize = 13,
+                            FontWeight = FontWeights.Bold,
+                            Background = Brushes.Transparent,
+                            IsHitTestVisible = false
+                        };
+                        Canvas.SetLeft(label, 6);
+                        Canvas.SetTop(label, -20);
+                        lineGroup.Children.Add(label);
+                        Canvas.SetLeft(lineGroup, _startPoint.X);
+                        Canvas.SetTop(lineGroup, _startPoint.Y);
+                        lineGroup.Width = 1;
+                        lineGroup.Height = 1;
+                        _currentShape = lineGroup;
+                    }
                     break;
 
                 case ToolType.Arrow:
@@ -1225,8 +1649,12 @@ namespace TraderPen
             double width = Math.Max(1, Math.Abs(end.X - start.X));
             double height = Math.Max(1, Math.Abs(end.Y - start.Y));
 
-            var fillBrush = new SolidColorBrush(Color.FromArgb(35, _currentColor.R, _currentColor.G, _currentColor.B));
-            var borderBrush = new SolidColorBrush(_currentColor);
+            Color zoneColor = _zoneMode == "BPR"
+                ? Color.FromRgb(255, 152, 0)
+                : _currentColor;
+            byte fillOpacity = _zoneMode == "OB" ? (byte)15 : (byte)35;
+            var fillBrush = new SolidColorBrush(Color.FromArgb(fillOpacity, zoneColor.R, zoneColor.G, zoneColor.B));
+            var borderBrush = new SolidColorBrush(zoneColor);
 
             var rect = new Rectangle
             {
@@ -1254,11 +1682,11 @@ namespace TraderPen
 
             var label = new TextBlock
             {
-                Text = "FVG",
+                Text = _zoneMode,
                 FontSize = 11,
                 FontWeight = FontWeights.Bold,
                 Foreground = borderBrush,
-                Margin = new Thickness(Math.Max(0, width - 32), (height / 2) - 8, 0, 0),
+                Margin = new Thickness(Math.Max(0, width - 32), Math.Max(2, (height / 2) - 18), 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top
             };
@@ -1271,6 +1699,33 @@ namespace TraderPen
             Canvas.SetTop(grid, y);
 
             return grid;
+        }
+
+        private void ZoneModeArrow_Click(object sender, RoutedEventArgs e)
+        {
+            ZoneModePopup.IsOpen = !ZoneModePopup.IsOpen;
+        }
+
+        private void ZoneModeOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button) return;
+
+            _zoneMode = button.Tag?.ToString() switch
+            {
+                "BPR" => "BPR",
+                "OB" => "OB",
+                _ => "FVG"
+            };
+
+            ZoneModeIcon.Text = _zoneMode switch
+            {
+                "BPR" => "🟧",
+                "OB" => "⬜",
+                _ => "🟦"
+            };
+            ZoneModeLabel.Text = $"{_zoneMode} (9)";
+            ZoneModePopup.IsOpen = false;
+            SwitchTool(ToolType.FVG);
         }
 
         private void UpdateFVGGroup(Grid grid, Point start, Point current)
@@ -1298,12 +1753,45 @@ namespace TraderPen
 
             if (grid.Children[2] is TextBlock label)
             {
-                label.Margin = new Thickness(Math.Max(0, width - 32), (height / 2) - 8, 0, 0);
+                label.Margin = new Thickness(Math.Max(0, width - 32), Math.Max(2, (height / 2) - 18), 0, 0);
+            }
+        }
+
+        private void UpdateLabeledLineGroup(Canvas lineGroup, Point start, Point current)
+        {
+            if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
+            {
+                current = new Point(current.X, start.Y);
+            }
+
+            double x = Math.Min(start.X, current.X);
+            double y = Math.Min(start.Y, current.Y);
+            double width = Math.Max(1, Math.Abs(current.X - start.X));
+            double height = Math.Max(1, Math.Abs(current.Y - start.Y));
+
+            Canvas.SetLeft(lineGroup, x);
+            Canvas.SetTop(lineGroup, y);
+            lineGroup.Width = width;
+            lineGroup.Height = height;
+
+            if (lineGroup.Children[0] is Line line)
+            {
+                line.X1 = start.X - x;
+                line.Y1 = start.Y - y;
+                line.X2 = current.X - x;
+                line.Y2 = current.Y - y;
+            }
+
+            if (lineGroup.Children[1] is TextBlock label)
+            {
+                Canvas.SetLeft(label, width + 6);
+                Canvas.SetTop(label, Math.Max(0, height / 2 - 9));
             }
         }
 
         private void DrawCanvas_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (_presentationMode) return;
             if (!_drawingMode) return;
 
             if (_pathPoints.Count > 0)
@@ -1389,7 +1877,7 @@ namespace TraderPen
             CrosshairH.X2 = DrawCanvas.ActualWidth;
 
             // Guia de largura do candle: mostra antes de clicar, some assim que começa a arrastar
-            if (_currentTool == ToolType.Candle && _currentShape == null)
+            if (!_presentationMode && _currentTool == ToolType.Candle && _currentShape == null)
             {
                 double previewWidth = GetCandleWidth();
                 CandleWidthPreview.Width = previewWidth;
@@ -1404,7 +1892,7 @@ namespace TraderPen
 
             // Prévia da borracha: ao contrário do candle, continua visível mesmo
             // enquanto o botão está pressionado (apagando de verdade).
-            if (_currentTool == ToolType.Eraser)
+            if (!_presentationMode && _currentTool == ToolType.Eraser)
             {
                 double eraserPreviewRadius = Math.Max(12, GetEffectiveThickness() * 3);
                 double eraserPreviewDiameter = eraserPreviewRadius * 2;
@@ -1417,6 +1905,12 @@ namespace TraderPen
             else
             {
                 EraserPreview.Visibility = Visibility.Collapsed;
+            }
+
+            if (_isResizingElement && e.LeftButton == MouseButtonState.Pressed)
+            {
+                ResizeSelectedElement(currentPoint);
+                return;
             }
 
             if (e.LeftButton == MouseButtonState.Pressed && _currentTool == ToolType.Eraser)
@@ -1486,6 +1980,10 @@ namespace TraderPen
                     line.Y2 = currentPoint.Y;
                 }
             }
+            else if (_currentShape is Canvas lineGroup && _currentTool == ToolType.Line)
+            {
+                UpdateLabeledLineGroup(lineGroup, _startPoint, currentPoint);
+            }
             else if (_currentShape is Path path)
             {
                 Point arrowEnd = currentPoint;
@@ -1549,8 +2047,42 @@ namespace TraderPen
 
         private void DrawCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            if (_presentationMode) return;
             if (!_drawingMode) return;
             if (e.ChangedButton != MouseButton.Left) return;
+
+            if (_isResizingElement)
+            {
+                _isResizingElement = false;
+                DrawCanvas.ReleaseMouseCapture();
+
+                if (_resizeElement != null &&
+                    _resizeElement.RenderTransform is Transform resizedTransform &&
+                    (_resizeStartPoint - e.GetPosition(DrawCanvas)).Length > 0.5)
+                {
+                    _undoManager.ExecuteCommand(new ResizeStrokeCommand(
+                        _resizeElement,
+                        _resizeOriginalTransform,
+                        resizedTransform,
+                        new Dictionary<Shape, double>(_resizeOriginalStrokeThickness),
+                        _resizeOriginalStrokeThickness.ToDictionary(
+                            pair => pair.Key,
+                            pair => pair.Key.StrokeThickness),
+                        new Dictionary<TextBlock, double>(_resizeOriginalFontSizes),
+                        _resizeOriginalFontSizes.ToDictionary(
+                            pair => pair.Key,
+                            pair => pair.Key.FontSize),
+                        new Dictionary<TextBlock, Transform?>(_resizeOriginalTextTransforms),
+                        _resizeOriginalTextTransforms.ToDictionary(
+                            pair => pair.Key,
+                            pair => pair.Key.RenderTransform?.Clone())));
+                }
+
+                _resizeElement = null;
+                _resizeHandleDirection = null;
+                UpdateSelectionBoxes();
+                return;
+            }
 
             if (_eraserSession != null)
             {
@@ -1615,6 +2147,7 @@ namespace TraderPen
 
         private void DrawCanvas_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
+            if (_presentationMode) return;
             if (!_drawingMode || _currentShape == null) return;
             if (e.ChangedButton != MouseButton.Right) return;
 
@@ -1663,8 +2196,8 @@ namespace TraderPen
                 _isDraggingToolbar = false;
                 ToolbarBorder.ReleaseMouseCapture();
 
-                // Se não arrastou (só clicou no logo/área vazia da barra), minimiza.
-                if (!_toolbarDragged)
+                // Um clique simples só minimiza quando ocorre no logo/nome do app.
+                if (!_toolbarDragged && ToolbarDragHandle.IsMouseOver)
                 {
                     MinimizeToolbar();
                 }
@@ -1802,6 +2335,31 @@ namespace TraderPen
             }
         }
 
+        private void LineModeArrow_Click(object sender, RoutedEventArgs e)
+        {
+            LineModePopup.IsOpen = !LineModePopup.IsOpen;
+        }
+
+        private void LineModeOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button) return;
+
+            _lineLabel = button.Tag?.ToString() switch
+            {
+                "CISD" => "CISD",
+                "PX" => "PX",
+                "BoS" => "BoS",
+                "ChoCh" => "ChoCh",
+                "MSS" => "MSS",
+                "Liquidez" => "Liquidez",
+                _ => null
+            };
+
+            LineModeIcon.Text = _lineLabel == null ? "📏" : $"{_lineLabel}";
+            LineModePopup.IsOpen = false;
+            SwitchTool(ToolType.Line);
+        }
+
         private void ColorButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag != null)
@@ -1843,15 +2401,19 @@ namespace TraderPen
             if (DrawCanvas.Visibility == Visibility.Visible)
             {
                 DrawCanvas.Visibility = Visibility.Collapsed;
+                SetSelectionVisualsVisibility(Visibility.Collapsed);
                 ToggleCanvasVisibilityButton.Content = "🙈";
                 ToggleCanvasVisibilityButton.ToolTip = "Mostrar Desenhos";
             }
             else
             {
                 DrawCanvas.Visibility = Visibility.Visible;
+                SetSelectionVisualsVisibility(Visibility.Visible);
                 ToggleCanvasVisibilityButton.Content = "👁️";
                 ToggleCanvasVisibilityButton.ToolTip = "Ocultar Desenhos";
             }
+
+            UpdateCrosshairVisibility();
         }
 
         private void UndoButton_Click(object sender, RoutedEventArgs e)
@@ -2022,14 +2584,20 @@ namespace TraderPen
 
             string pastaBase = System.IO.Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "TraderPen", dialog.EnteredName);
+                "TraderPen", $"{dialog.EnteredName} - {DateTime.Now:yyyy-MM-dd_HH-mm-ss}");
 
             // Guarda o que estava sendo mostrado agora, pra devolver no final
             var elementosAtivosOriginais = DrawCanvas.Children.OfType<UIElement>().ToList();
+            var fundoOriginal = DrawCanvas.Background;
 
             try
             {
                 System.IO.Directory.CreateDirectory(pastaBase);
+
+                // O fundo escolhido fica em um elemento atrás do DrawCanvas.
+                // Copiá-lo temporariamente permite exportar a composição do quadro
+                // sem incluir a toolbar ou o restante da interface.
+                DrawCanvas.Background = BoardBackground.Fill;
 
                 foreach (var tab in _savedTabs.OrderBy(t => t.Number))
                 {
@@ -2066,7 +2634,139 @@ namespace TraderPen
                 DrawCanvas.Children.Clear();
                 foreach (var el in elementosAtivosOriginais)
                     DrawCanvas.Children.Add(el);
+                DrawCanvas.Background = fundoOriginal;
             }
+        }
+
+        private void ExportarComposicaoButton_Click(object sender, RoutedEventArgs e)
+        {
+            SaveCurrentIntoActiveTabSlot();
+
+            if (_savedTabs.Count == 0)
+            {
+                MessageBox.Show("Ainda não tem nenhuma aba salva pra capturar.", "Capturar composição",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new NameInputWindow { Owner = this };
+            if (dialog.ShowDialog() != true) return;
+
+            string pastaBase = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "TraderPen", $"{dialog.EnteredName} - Capturas - {DateTime.Now:yyyy-MM-dd_HH-mm-ss}");
+
+            var elementosAtivosOriginais = DrawCanvas.Children.OfType<UIElement>().ToList();
+            var fundoOriginal = DrawCanvas.Background;
+            BitmapSource? fundoDaTela = null;
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(pastaBase);
+
+                if (_boardMode == BoardMode.Transparent)
+                {
+                    fundoDaTela = CaptureScreenBehindOverlay();
+                }
+
+                DrawCanvas.Background = Brushes.Transparent;
+
+                foreach (var tab in _savedTabs.OrderBy(t => t.Number))
+                {
+                    DrawCanvas.Children.Clear();
+                    foreach (var el in tab.Elements)
+                        DrawCanvas.Children.Add(el);
+
+                    DrawCanvas.UpdateLayout();
+                    var desenhos = RenderTargetBitmapFromCanvas();
+                    var composicao = new DrawingVisual();
+
+                    using (var drawingContext = composicao.RenderOpen())
+                    {
+                        var area = new Rect(0, 0, DrawCanvas.ActualWidth, DrawCanvas.ActualHeight);
+                        if (fundoDaTela != null)
+                        {
+                            drawingContext.DrawImage(fundoDaTela, area);
+                        }
+                        else
+                        {
+                            drawingContext.DrawRectangle(BoardBackground.Fill, null, area);
+                        }
+
+                        drawingContext.DrawImage(desenhos, area);
+                    }
+
+                    var bitmap = new RenderTargetBitmap(
+                        (int)DrawCanvas.ActualWidth, (int)DrawCanvas.ActualHeight,
+                        96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(composicao);
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+                    string caminhoArquivo = System.IO.Path.Combine(pastaBase, $"Aba {tab.Number}.png");
+                    using var stream = new System.IO.FileStream(caminhoArquivo, System.IO.FileMode.Create);
+                    encoder.Save(stream);
+                }
+
+                MessageBox.Show($"Capturas exportadas em:\n{pastaBase}", "Capturar composição",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Não consegui capturar: {ex.Message}", "Erro ao capturar",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                DrawCanvas.Children.Clear();
+                foreach (var el in elementosAtivosOriginais)
+                    DrawCanvas.Children.Add(el);
+                DrawCanvas.Background = fundoOriginal;
+            }
+        }
+
+        private BitmapSource CaptureScreenBehindOverlay()
+        {
+            int width = Math.Max(1, (int)Math.Round(ActualWidth));
+            int height = Math.Max(1, (int)Math.Round(ActualHeight));
+            int left = (int)Math.Round(Left);
+            int top = (int)Math.Round(Top);
+
+            using var screenshot = new DrawingBitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            Hide();
+            try
+            {
+                Dispatcher.Invoke(DispatcherPriority.Render, new Action(() => { }));
+                using var graphics = DrawingGraphics.FromImage(screenshot);
+                graphics.CopyFromScreen(left, top, 0, 0, screenshot.Size);
+            }
+            finally
+            {
+                Show();
+                Activate();
+            }
+
+            using var stream = new System.IO.MemoryStream();
+            screenshot.Save(stream, DrawingImageFormat.Png);
+            stream.Position = 0;
+
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = stream;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+
+        private RenderTargetBitmap RenderTargetBitmapFromCanvas()
+        {
+            var bitmap = new RenderTargetBitmap(
+                (int)DrawCanvas.ActualWidth, (int)DrawCanvas.ActualHeight,
+                96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(DrawCanvas);
+            return bitmap;
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)

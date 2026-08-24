@@ -208,6 +208,7 @@
                     BorderBrush="#3A3A3A"
                     BorderThickness="1"
                     Visibility="Collapsed"
+                    MinHeight="104"
                     MouseLeftButtonDown="Toolbar_MouseLeftButtonDown"
                     MouseMove="Toolbar_MouseMove"
                     MouseLeftButtonUp="Toolbar_MouseLeftButtonUp">
@@ -216,43 +217,80 @@
                     <DropShadowEffect BlurRadius="18" ShadowDepth="4" Color="Black" Opacity="0.5"/>
                 </Border.Effect>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Orientation="Vertical" VerticalAlignment="Center">
 
-                    <!-- Logo + Nome do App (área de arrasto) -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,10,0">
-                        <Border Width="28" Height="28" CornerRadius="7" Margin="0,0,7,0" ClipToBounds="True">
-                            <Image Source="Assets/logo.png" Stretch="Uniform"/>
-                        </Border>
-                        <TextBlock Text="TRADEPEN" FontSize="10" FontWeight="Bold" Foreground="#7A7A7A" VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <!-- Linha principal: todas as ferramentas de desenho ficam visíveis -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Logo + Nome do App (área de arrasto) -->
+                        <StackPanel x:Name="ToolbarDragHandle" Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,10,0">
+                            <Border Width="28" Height="28" CornerRadius="7" Margin="0,0,7,0" ClipToBounds="True">
+                                <Image Source="Assets/logo.png" Stretch="Uniform"/>
+                            </Border>
+                            <TextBlock Text="TRADEPEN" FontSize="10" FontWeight="Bold" Foreground="#7A7A7A" VerticalAlignment="Center"/>
+                        </StackPanel>
 
-                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="4,0,8,0"/>
+                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="4,0,8,0"/>
 
-                    <!-- Ferramentas -->
-                    <StackPanel x:Name="ToolContainer" Orientation="Horizontal">
+                        <!-- Ferramentas -->
+                        <StackPanel x:Name="ToolContainer" Orientation="Horizontal">
                         <Button Tag="Select" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Mover (M)">
                             <StackPanel>
                                 <TextBlock Text="✋" FontSize="18" HorizontalAlignment="Center"/>
                                 <TextBlock Text="MOVER (M)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Button Tag="Pen" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Caneta (1)">
+                        <Button Tag="Candle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Candle (1)">
                             <StackPanel>
-                                <TextBlock Text="✏️" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="CANETA (1)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Highlighter" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Marca-texto (2)">
-                            <StackPanel>
-                                <TextBlock Text="🖍️" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="MARCA (2)" Style="{StaticResource ToolLabelStyle}"/>
+                                <TextBlock Text="🕯️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="CANDLE (1)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
                         <Grid Margin="2,2,2,2" Width="62" Height="46">
-                            <Button Tag="Rectangle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Retângulo (3)" Margin="0">
+                            <Button Tag="FVG" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Zona FVG (2)" Margin="0">
+                                <StackPanel>
+                                    <TextBlock x:Name="ZoneModeIcon" Text="🟦" FontSize="18" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="ZoneModeLabel" Text="FVG (2)" Style="{StaticResource ToolLabelStyle}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ZoneModeArrow" Click="ZoneModeArrow_Click" Width="16" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Background="#3A3A3A" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip="Escolher tipo de zona">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="3"><TextBlock Text="▾" FontSize="10" Foreground="#CCCCCC" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                            <Button Tag="Line" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Linha (3)" Margin="0">
+                                <StackPanel>
+                                    <TextBlock x:Name="LineModeIcon" Text="📏" FontSize="18" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="LINHA (3)" Style="{StaticResource ToolLabelStyle}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="LineModeArrow" Click="LineModeArrow_Click" Width="16" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Background="#3A3A3A" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip="Escolher rótulo da linha">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="3"><TextBlock Text="▾" FontSize="10" Foreground="#CCCCCC" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                        <Button Tag="Path" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Path (4)">
+                            <StackPanel><TextBlock Text="📈" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="PATH (4)" Style="{StaticResource ToolLabelStyle}"/></StackPanel>
+                        </Button>
+                        <Button Tag="Arrow" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Seta (5)">
+                            <StackPanel><TextBlock Text="➡️" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="SETA (5)" Style="{StaticResource ToolLabelStyle}"/></StackPanel>
+                        </Button>
+
+                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
+
+                        <Button Tag="Pen" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Caneta (6)">
+                            <StackPanel><TextBlock Text="✏️" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="CANETA (6)" Style="{StaticResource ToolLabelStyle}"/></StackPanel>
+                        </Button>
+                        <Button Tag="Highlighter" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Marca-texto (7)">
+                            <StackPanel><TextBlock Text="🖍️" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="MARCA (7)" Style="{StaticResource ToolLabelStyle}"/></StackPanel>
+                        </Button>
+                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                            <Button Tag="Rectangle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Retângulo (8)" Margin="0">
                                 <StackPanel>
                                     <TextBlock x:Name="RectangleModeIcon" Text="🔲" FontSize="18" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="RETÂNG. (3)" Style="{StaticResource ToolLabelStyle}"/>
+                                    <TextBlock Text="RETÂNG. (8)" Style="{StaticResource ToolLabelStyle}"/>
                                 </StackPanel>
                             </Button>
                             <Button x:Name="RectangleModeArrow" Click="RectangleModeArrow_Click"
@@ -270,45 +308,14 @@
                                 </Button.Template>
                             </Button>
                         </Grid>
-                        <Button Tag="Ellipse" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Círculo (4)">
+                        <Button Tag="Ellipse" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Círculo (9)">
                             <StackPanel>
                                 <TextBlock Text="⭕" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="CÍRCULO (4)" Style="{StaticResource ToolLabelStyle}"/>
+                                <TextBlock Text="CÍRCULO (9)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
 
                         <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
-
-                        <Button Tag="Line" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Linha (5)">
-                            <StackPanel>
-                                <TextBlock Text="📏" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="LINHA (5)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Arrow" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Seta (6)">
-                            <StackPanel>
-                                <TextBlock Text="➡️" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="SETA (6)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Path" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Path (7)">
-                            <StackPanel>
-                                <TextBlock Text="📈" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="PATH (7)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="Candle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Candle (8)">
-                            <StackPanel>
-                                <TextBlock Text="🕯️" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="CANDLE (8)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Tag="FVG" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="FVG (9)">
-                            <StackPanel>
-                                <TextBlock Text="🟦" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="FVG (9)" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
 
                         <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
 
@@ -340,9 +347,12 @@
                                 </Button.Template>
                             </Button>
                         </Grid>
+                        </StackPanel>
                     </StackPanel>
 
-                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+                    <!-- Linha de contexto: cores, abas e ações da aula -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6,0,0">
+                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
 
                     <!-- Cores -->
                     <UniformGrid x:Name="ColorContainer" Columns="2" VerticalAlignment="Center">
@@ -366,7 +376,7 @@
                     <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
 
                     <!-- Abas (histórico de telas da aula) -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Style="{StaticResource ToolButtonStyle}" Click="NovaAbaButton_Click" ToolTip="Salvar tela atual e começar uma aba nova">
                             <StackPanel>
                                 <TextBlock Text="➕" FontSize="18" HorizontalAlignment="Center"/>
@@ -378,6 +388,12 @@
                             <StackPanel>
                                 <TextBlock Text="💾" FontSize="18" HorizontalAlignment="Center"/>
                                 <TextBlock Text="EXPORTAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="ExportarComposicaoButton_Click" ToolTip="Exportar as abas com o fundo visível na tela">
+                            <StackPanel>
+                                <TextBlock Text="📷" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="CAPTURAR" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -434,6 +450,7 @@
                                 <TextBlock Text="FECHAR" Style="{StaticResource ToolLabelStyle}" Foreground="#FF6B6B"/>
                             </StackPanel>
                         </Button>
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -478,7 +495,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="1" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Caneta" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Candle" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -488,7 +505,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="2" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Marca-texto" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="FVG / BPR / OB" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -498,7 +515,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="3" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Retângulo" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Linha" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -508,7 +525,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="4" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Círculo" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Path (multi-ponto)" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -518,7 +535,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="5" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Linha" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Seta" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -528,7 +545,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="6" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Seta" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Caneta" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -538,7 +555,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="7" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Path (multi-ponto)" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Marca-texto" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -548,7 +565,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="8" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Candle" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Retângulo" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -558,7 +575,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="9" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="FVG" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Círculo" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -622,6 +639,16 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Espaço" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Entrar/sair do modo apresentação" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="Ctrl+Z" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
                                     <TextBlock Grid.Column="1" Text="Desfazer" Style="{StaticResource ShortcutDescStyle}"/>
@@ -644,7 +671,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="Esc" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Cancelar seleção / sair do Path" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Cancelar Path/seleção ou sair da apresentação" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -674,7 +701,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="Shift+Arrastar" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Trava a Linha/Seta na horizontal" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Trava Linha, Linha rotulada e Seta na horizontal" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -684,7 +711,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="Botão dir." Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Desenha o pavio do Candle" Style="{StaticResource ShortcutDescStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="Desenha o pavio do Candle; setas dos botões abrem opções" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
@@ -762,6 +789,87 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="⬛" FontSize="16" Margin="4,0,8,0"/>
                                 <TextBlock Text="Preenchido" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Popup com os rótulos usados nas linhas de estrutura -->
+            <Popup x:Name="LineModePopup"
+                   PlacementTarget="{Binding ElementName=LineModeArrow}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade">
+                <Border Background="#1C1C1E"
+                        BorderBrush="#3A3A3A"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="4"
+                        Margin="0,4,0,0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="14" ShadowDepth="3" Color="Black" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <Button Click="LineModeOption_Click" Tag="CISD" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36">
+                            <TextBlock Text="CISD" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                        <Button Click="LineModeOption_Click" Tag="PX" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <TextBlock Text="PX" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                        <Button Click="LineModeOption_Click" Tag="BoS" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <TextBlock Text="BoS" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                        <Button Click="LineModeOption_Click" Tag="ChoCh" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <TextBlock Text="ChoCh" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                        <Button Click="LineModeOption_Click" Tag="MSS" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <TextBlock Text="MSS" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                        <Button Click="LineModeOption_Click" Tag="Liquidez" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <TextBlock Text="Liquidez" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                        <Button Click="LineModeOption_Click" Tag="None" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <TextBlock Text="Linha simples" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Popup com os tipos de zona usados na explicação -->
+            <Popup x:Name="ZoneModePopup"
+                   PlacementTarget="{Binding ElementName=ZoneModeArrow}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade">
+                <Border Background="#1C1C1E"
+                        BorderBrush="#3A3A3A"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="4"
+                        Margin="0,4,0,0">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="14" ShadowDepth="3" Color="Black" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <Button Click="ZoneModeOption_Click" Tag="FVG" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🟦" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="FVG" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="ZoneModeOption_Click" Tag="BPR" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🟧" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="BPR" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Click="ZoneModeOption_Click" Tag="OB" Style="{StaticResource ToolButtonStyle}" Width="140" Height="36" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⬜" FontSize="16" Margin="4,0,8,0"/>
+                                <TextBlock Text="OB" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>

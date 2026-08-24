@@ -31,11 +31,7 @@ namespace TraderPen.History
 
             foreach (var el in _elements)
             {
-                if (el.RenderTransform is TranslateTransform t)
-                {
-                    t.X += _delta.X;
-                    t.Y += _delta.Y;
-                }
+                ApplyTranslation(el, _delta);
             }
         }
 
@@ -43,11 +39,27 @@ namespace TraderPen.History
         {
             foreach (var el in _elements)
             {
-                if (el.RenderTransform is TranslateTransform t)
+                ApplyTranslation(el, -_delta);
+            }
+        }
+
+        private static void ApplyTranslation(UIElement element, Vector delta)
+        {
+            if (element.RenderTransform is TranslateTransform translate)
+            {
+                translate.X += delta.X;
+                translate.Y += delta.Y;
+            }
+            else if (element.RenderTransform is TransformGroup group)
+            {
+                var groupTranslate = group.Children.OfType<TranslateTransform>().FirstOrDefault();
+                if (groupTranslate == null)
                 {
-                    t.X -= _delta.X;
-                    t.Y -= _delta.Y;
+                    groupTranslate = new TranslateTransform();
+                    group.Children.Add(groupTranslate);
                 }
+                groupTranslate.X += delta.X;
+                groupTranslate.Y += delta.Y;
             }
         }
     }
