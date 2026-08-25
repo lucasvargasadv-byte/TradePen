@@ -24,18 +24,35 @@ namespace TraderPen.Overlay
         [DllImport("user32.dll")]
         public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-        /// Torna a janela "click-through": cliques passam para o que está atrás dela.
+        /// Torna a janela click-through. A camada da barra pode ser reativada
+        /// temporariamente quando o cursor estiver sobre ela.
         public static void EnableClickThrough(IntPtr hWnd)
         {
             int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
             SetWindowLong(hWnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT);
         }
 
-        /// Faz a janela voltar a capturar cliques normalmente (modo desenho).
+        /// Faz a janela capturar cliques normalmente (modo desenho).
         public static void DisableClickThrough(IntPtr hWnd)
         {
             int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
             SetWindowLong(hWnd, GWL_EXSTYLE, (exStyle | WS_EX_LAYERED) & ~WS_EX_TRANSPARENT);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ScreenPoint
+        {
+            public int X;
+            public int Y;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out ScreenPoint point);
+
+        public static System.Windows.Point GetCursorPosition()
+        {
+            GetCursorPos(out var point);
+            return new System.Windows.Point(point.X, point.Y);
         }
     }
 }

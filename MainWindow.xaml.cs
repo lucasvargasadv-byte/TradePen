@@ -120,6 +120,23 @@ namespace TraderPen
         private bool _presentationMode = false;
         private Visibility _toolbarVisibilityBeforePresentation;
         private Visibility _bubbleVisibilityBeforePresentation;
+        private readonly DispatcherTimer _mouseModeInteractionTimer = new() { Interval = TimeSpan.FromMilliseconds(50) };
+
+        private sealed class ActionCommand : IUndoableCommand
+        {
+            private readonly Action _execute;
+            private readonly Action _undo;
+
+            public ActionCommand(Action execute, Action undo)
+            {
+                _execute = execute;
+                _undo = undo;
+            }
+
+            public void Execute() => _execute();
+
+            public void Undo() => _undo();
+        }
 
         public MainWindow()
         {
@@ -143,16 +160,17 @@ namespace TraderPen
                 var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(400));
                 ModeIndicator.BeginAnimation(OpacityProperty, fadeOut);
             };
+
+            _mouseModeInteractionTimer.Tick += (_, _) => UpdateMouseModeInteraction();
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            var visibilityBeforeMeasure = ToolbarBorder.Visibility;
             ToolbarBorder.Visibility = Visibility.Visible;
             UpdateLayout();
             Canvas.SetLeft(ToolbarBorder, 20);
             Canvas.SetTop(ToolbarBorder, Math.Max(20, ActualHeight - ToolbarBorder.ActualHeight - 30));
-            ToolbarBorder.Visibility = visibilityBeforeMeasure;
+            UpdateMouseModeInteraction();
         }
 
         /// <summary>
@@ -171,6 +189,7 @@ namespace TraderPen
         {
             var hwnd = new WindowInteropHelper(this).Handle;
             NativeMethods.EnableClickThrough(hwnd);
+            _mouseModeInteractionTimer.Start();
 
             _hotkeys = new HotkeyManager(this);
             _hotkeys.ToggleModeRequested += ToggleMode;
@@ -178,6 +197,38 @@ namespace TraderPen
             HighlightToolButton(_currentTool.ToString());
             HighlightColorButton("Red");
             HighlightThicknessButton("2");
+            UpdateModeButtons();
+        }
+
+        private static bool IsPointInside(FrameworkElement element, Point point)
+        {
+            if (!element.IsVisible || element.ActualWidth <= 0 || element.ActualHeight <= 0)
+            {
+                return false;
+            }
+
+            double left = Canvas.GetLeft(element);
+            double top = Canvas.GetTop(element);
+            return point.X >= left && point.X <= left + element.ActualWidth &&
+                   point.Y >= top && point.Y <= top + element.ActualHeight;
+        }
+
+        private void UpdateMouseModeInteraction()
+        {
+            if (_drawingMode || _presentationMode) return;
+
+            var cursorPosition = PointFromScreen(NativeMethods.GetCursorPosition());
+            bool overToolbar = IsPointInside(ToolbarBorder, cursorPosition) || IsPointInside(MinimizedBubble, cursorPosition);
+            var hwnd = new WindowInteropHelper(this).Handle;
+
+            if (overToolbar || _isDraggingToolbar || _isDraggingBubble)
+            {
+                NativeMethods.DisableClickThrough(hwnd);
+            }
+            else
+            {
+                NativeMethods.EnableClickThrough(hwnd);
+            }
         }
 
         private void ToggleMode()
@@ -216,7 +267,16 @@ namespace TraderPen
                 ShowModeIndicatorTemporarily();
             }
 
+            UpdateModeButtons();
             UpdateCrosshairVisibility();
+        }
+
+        private void UpdateModeButtons()
+        {
+            MouseModeButton.BorderBrush = _drawingMode ? Brushes.Gray : Brushes.Cyan;
+            MouseModeButton.BorderThickness = new Thickness(_drawingMode ? 1 : 2);
+            DrawingModeButton.BorderBrush = _drawingMode ? Brushes.Cyan : Brushes.Gray;
+            DrawingModeButton.BorderThickness = new Thickness(_drawingMode ? 2 : 1);
         }
 
         // Fecha uma sessão de borracha em andamento (se houver), registrando no
@@ -2372,6 +2432,9 @@ namespace TraderPen
                     "White" => "#FFFFFF",
                     "Blue" => "#29B6F6",
                     "Black" => "#000000",
+                    "Orange" => "#FF6D00",
+                    "Purple" => "#AA00FF",
+                    "Pink" => "#F50057",
                     _ => "#FF4444"
                 };
                 ChangeColor(hexColor, tagStr);
@@ -2402,18 +2465,41 @@ namespace TraderPen
             {
                 DrawCanvas.Visibility = Visibility.Collapsed;
                 SetSelectionVisualsVisibility(Visibility.Collapsed);
-                ToggleCanvasVisibilityButton.Content = "🙈";
+                ToggleCanvasVisibilityIcon.Text = "🙈";
+                ToggleCanvasVisibilityLabel.Text = "MOSTRAR";
                 ToggleCanvasVisibilityButton.ToolTip = "Mostrar Desenhos";
+
+                if (_drawingMode)
+                {
+                    ToggleMode();
+                }
             }
             else
             {
                 DrawCanvas.Visibility = Visibility.Visible;
                 SetSelectionVisualsVisibility(Visibility.Visible);
-                ToggleCanvasVisibilityButton.Content = "👁️";
+                ToggleCanvasVisibilityIcon.Text = "👁️";
+                ToggleCanvasVisibilityLabel.Text = "OCULTAR";
                 ToggleCanvasVisibilityButton.ToolTip = "Ocultar Desenhos";
             }
 
             UpdateCrosshairVisibility();
+        }
+
+        private void MouseModeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_drawingMode)
+            {
+                ToggleMode();
+            }
+        }
+
+        private void DrawingModeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_drawingMode)
+            {
+                ToggleMode();
+            }
         }
 
         private void UndoButton_Click(object sender, RoutedEventArgs e)
@@ -2498,7 +2584,7 @@ namespace TraderPen
             HighlightTabButton(tabNumber);
         }
 
-        private void AddTabButton(DrawingTab tab)
+        private void AddTabButton(DrawingTab tab, int? index = null)
         {
             var closeButton = new Button
             {
@@ -2529,7 +2615,14 @@ namespace TraderPen
                 Style = (Style)FindResource("ThicknessButtonStyle")
             };
             btn.Click += TabButton_Click;
-            TabsContainer.Children.Add(btn);
+            if (index.HasValue)
+            {
+                TabsContainer.Children.Insert(Math.Min(index.Value, TabsContainer.Children.Count), btn);
+            }
+            else
+            {
+                TabsContainer.Children.Add(btn);
+            }
         }
 
         private void CloseTabButton_Click(object sender, RoutedEventArgs e)
@@ -2539,19 +2632,41 @@ namespace TraderPen
             var tab = _savedTabs.FirstOrDefault(t => t.Number == tabNumber);
             if (tab == null) return;
 
-            var tabButton = TabsContainer.Children.OfType<Button>().FirstOrDefault(b => b.Tag is int n && n == tabNumber);
-            if (tabButton != null) TabsContainer.Children.Remove(tabButton);
+            int tabIndex = _savedTabs.IndexOf(tab);
+            bool wasActive = _activeTab == tab;
 
-            _savedTabs.Remove(tab);
-
-            // Se a aba fechada era a que estava sendo mostrada, volta pra uma tela em branco
-            if (_activeTab == tab)
+            void RemoveTab()
             {
-                DrawCanvas.Children.Clear();
-                _undoManager = new UndoManager();
-                _activeTab = null;
-                HighlightTabButton(null);
+                var tabButton = TabsContainer.Children.OfType<Button>().FirstOrDefault(b => b.Tag is int n && n == tabNumber);
+                if (tabButton != null) TabsContainer.Children.Remove(tabButton);
+                _savedTabs.Remove(tab);
+
+                if (wasActive)
+                {
+                    DrawCanvas.Children.Clear();
+                    _activeTab = null;
+                    HighlightTabButton(null);
+                }
             }
+
+            void RestoreTab()
+            {
+                _savedTabs.Insert(Math.Min(tabIndex, _savedTabs.Count), tab);
+                AddTabButton(tab, tabIndex);
+
+                if (wasActive)
+                {
+                    DrawCanvas.Children.Clear();
+                    foreach (var element in tab.Elements)
+                        DrawCanvas.Children.Add(element);
+                    _undoManager = tab.UndoManager;
+                    _activeTab = tab;
+                    HighlightTabButton(tab.Number);
+                }
+            }
+
+            RemoveTab();
+            _undoManager.RegisterCompletedCommand(new ActionCommand(RemoveTab, RestoreTab));
         }
 
         private void HighlightTabButton(int? activeNumber)
