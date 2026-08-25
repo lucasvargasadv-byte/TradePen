@@ -14,6 +14,7 @@ Ele funciona como uma camada sobre a tela, permitindo utilizar ferramentas de de
 
 O TraderPen pode ser utilizado sobre diferentes plataformas e ambientes de análise, permitindo desenhar diretamente sobre o gráfico sem precisar alterar o aplicativo que está sendo utilizado.
 
+![TraderPen em ação](Assets/TraderPen-Demo.gif)
 ---
 
 ## 💡 Por que o TraderPen?
