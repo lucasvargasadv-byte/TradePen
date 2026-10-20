@@ -441,7 +441,7 @@
                             <Slider x:Name="ThicknessSlider" Minimum="1" Maximum="12" Value="2"
                                     TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="BottomRight"
                                     ValueChanged="ThicknessSlider_ValueChanged" Width="118" Height="24"
-                                    Margin="0" ToolTip="Arraste para escolher de 1 a 12 px"/>
+                                    Margin="0" ToolTip="Escolha de 1 a 12 px; com desenhos selecionados, ajusta espessura, texto e largura das velas"/>
                             <DockPanel Margin="4,-2,4,0">
                                 <TextBlock Text="1 px" FontSize="8" Foreground="#8A8A8A" DockPanel.Dock="Left"/>
                                 <TextBlock Text="12 px" FontSize="8" Foreground="#8A8A8A" HorizontalAlignment="Right" DockPanel.Dock="Right"/>

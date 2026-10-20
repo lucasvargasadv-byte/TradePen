@@ -533,15 +533,21 @@ namespace TraderPen
             return _currentTool == ToolType.Highlighter ? _currentThickness * 4 : _currentThickness;
         }
 
-        private double GetCandleWidth()
+        private static double GetTextFontSize(double thickness)
         {
-            return _currentThickness switch
+            return 14 + (thickness * 2);
+        }
+
+        private double GetCandleWidth(double? thickness = null)
+        {
+            double effectiveThickness = thickness ?? _currentThickness;
+            return effectiveThickness switch
             {
                 2 => 12,
                 4 => 24,
                 8 => 40,
-                <= 4 => 12 + ((_currentThickness - 2) * 6),
-                _ => 24 + ((_currentThickness - 4) * 4)
+                <= 4 => 12 + ((effectiveThickness - 2) * 6),
+                _ => 24 + ((effectiveThickness - 4) * 4)
             };
         }
 
@@ -1442,7 +1448,7 @@ namespace TraderPen
                     var candleRect = new Rectangle
                     {
                         Stroke = brush,
-                        StrokeThickness = 1,
+                        StrokeThickness = thickness,
                         Fill = brush,
                         Tag = "CANDLE_BODY"
                     };
@@ -1468,7 +1474,7 @@ namespace TraderPen
         {
             var textBox = new TextBox
             {
-                FontSize = 14 + (_currentThickness * 2),
+                FontSize = GetTextFontSize(_currentThickness),
                 Foreground = GetCurrentBrush(),
                 Background = Brushes.Transparent,
                 BorderBrush = Brushes.Cyan,
@@ -2087,6 +2093,7 @@ namespace TraderPen
             var clickPos = e.GetPosition(DrawCanvas);
             double targetX = clickPos.X;
             bool candleFound = false;
+            Rectangle? targetCandle = null;
 
             double minDistance = double.MaxValue;
 
@@ -2112,6 +2119,7 @@ namespace TraderPen
                         minDistance = dist;
                         targetX = candleCenterX;
                         candleFound = true;
+                        targetCandle = child;
                     }
                 }
             }
@@ -2127,11 +2135,12 @@ namespace TraderPen
             _currentShape = new Line
             {
                 Stroke = brush,
-                StrokeThickness = 2,
+                StrokeThickness = GetEffectiveThickness(),
                 X1 = targetX,
                 Y1 = clickPos.Y,
                 X2 = targetX,
                 Y2 = clickPos.Y,
+                Tag = targetCandle,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round
             };
@@ -2716,11 +2725,114 @@ namespace TraderPen
 
         private void ThicknessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            double previousThickness = _currentThickness;
+            double newThickness = e.NewValue;
             _currentThickness = e.NewValue;
             if (ThicknessValueLabel != null)
             {
                 ThicknessValueLabel.Text = $"{e.NewValue:0} px";
             }
+
+            if (_selectedElements.Count == 0 || previousThickness <= 0 || previousThickness == newThickness)
+            {
+                return;
+            }
+
+            var beforeStrokeThickness = new Dictionary<Shape, double>();
+            var beforeFontSizes = new Dictionary<TextBlock, double>();
+            var beforeCandleWidths = new Dictionary<Rectangle, double>();
+            var beforeCandleLefts = new Dictionary<Rectangle, double>();
+            var beforeWickPoints = new Dictionary<Line, (double X1, double Y1, double X2, double Y2)>();
+
+            foreach (var element in _selectedElements)
+            {
+                var shapes = GetDescendantShapes(element).ToList();
+                foreach (var shape in shapes)
+                {
+                    if (shape.StrokeThickness == newThickness) continue;
+
+                    beforeStrokeThickness.TryAdd(shape, shape.StrokeThickness);
+                    shape.StrokeThickness = newThickness;
+                }
+
+                foreach (var textBlock in GetDescendantTextBlocks(element))
+                {
+                    double newFontSize = GetTextFontSize(newThickness);
+                    if (textBlock.FontSize == newFontSize) continue;
+
+                    beforeFontSizes.TryAdd(textBlock, textBlock.FontSize);
+                    textBlock.FontSize = newFontSize;
+                }
+
+            }
+
+            var selectedCandles = _selectedElements
+                .SelectMany(GetDescendantShapes)
+                .OfType<Rectangle>()
+                .Where(shape => Equals(shape.Tag, "CANDLE_BODY") && shape.Width > 0)
+                .Distinct()
+                .ToList();
+
+            double newCandleWidth = GetCandleWidth(newThickness);
+            var candleBounds = selectedCandles.ToDictionary(candle => candle, GetTransformedElementCanvasBounds);
+            double averageCurrentCandleWidth = selectedCandles.Count == 0
+                ? 0
+                : selectedCandles.Average(candle => candle.Width);
+            double candleSpacingScale = averageCurrentCandleWidth > 0
+                ? newCandleWidth / averageCurrentCandleWidth
+                : 1;
+            double candleCenter = selectedCandles.Count == 0
+                ? 0
+                : selectedCandles.Average(candle => candleBounds[candle].X + candleBounds[candle].Width / 2);
+
+            foreach (var candle in selectedCandles)
+            {
+                Rect bounds = candleBounds[candle];
+                double currentCenter = bounds.X + bounds.Width / 2;
+                double newCenter = candleCenter + ((currentCenter - candleCenter) * candleSpacingScale);
+                double centerDelta = newCenter - currentCenter;
+                double widthDelta = newCandleWidth - candle.Width;
+                if (Math.Abs(centerDelta) < 0.001 && Math.Abs(widthDelta) < 0.001) continue;
+
+                double left = Canvas.GetLeft(candle);
+                if (double.IsNaN(left)) left = 0;
+
+                beforeCandleWidths.TryAdd(candle, candle.Width);
+                beforeCandleLefts.TryAdd(candle, left);
+                Canvas.SetLeft(candle, left + centerDelta - (widthDelta / 2));
+                candle.Width = newCandleWidth;
+
+                foreach (var wick in DrawCanvas.Children.OfType<Line>()
+                             .Where(line => ReferenceEquals(line.Tag, candle)))
+                {
+                    if (Math.Abs(centerDelta) < 0.001) continue;
+
+                    beforeWickPoints.TryAdd(wick, (wick.X1, wick.Y1, wick.X2, wick.Y2));
+                    wick.X1 += centerDelta;
+                    wick.X2 += centerDelta;
+                }
+            }
+
+            if (beforeStrokeThickness.Count == 0 && beforeFontSizes.Count == 0 &&
+                beforeCandleWidths.Count == 0 && beforeWickPoints.Count == 0)
+            {
+                return;
+            }
+
+            _undoManager.RegisterCompletedCommand(new ChangeSelectedSizeCommand(
+                beforeStrokeThickness,
+                beforeStrokeThickness.ToDictionary(pair => pair.Key, pair => pair.Key.StrokeThickness),
+                beforeFontSizes,
+                beforeFontSizes.ToDictionary(pair => pair.Key, pair => pair.Key.FontSize),
+                beforeCandleWidths,
+                beforeCandleWidths.ToDictionary(pair => pair.Key, pair => pair.Key.Width),
+                beforeCandleLefts,
+                beforeCandleLefts.ToDictionary(pair => pair.Key, pair => Canvas.GetLeft(pair.Key)),
+                beforeWickPoints,
+                beforeWickPoints.ToDictionary(
+                    pair => pair.Key,
+                    pair => (pair.Key.X1, pair.Key.Y1, pair.Key.X2, pair.Key.Y2))));
+            UpdateSelectionBoxes();
         }
 
         private void SmoothWritingButton_Click(object sender, RoutedEventArgs e)
