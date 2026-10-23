@@ -36,7 +36,7 @@ A ideia é ter, em uma única ferramenta:
 - ↩️ Desfazer e refazer
 - 🎨 Cores e espessuras
 - 🖥️ Modo apresentação
-- 📸 Captura e exportação dos estudos
+- 📸 Captura dos estudos
 
 Tudo isso funcionando diretamente sobre a tela.
 
@@ -123,6 +123,14 @@ Ao criar uma nova aba, o estudo anterior é preservado.
 
 As abas não são apenas imagens estáticas. Os elementos continuam editáveis.
 
+## Salvar e abrir documentos
+
+Use **Salvar** (`Ctrl+S`) para criar ou atualizar um documento `.traderpen`, e **Abrir** (`Ctrl+O`) para continuar um estudo salvo. O documento guarda todas as abas, a aba ativa, o modo de fundo e os objetos de desenho como elementos editáveis. **Salvar como** cria uma cópia com outro nome.
+
+O arquivo `.traderpen` é um documento JSON versionado com os dados dos objetos; não é uma captura de tela. A opção **Capturar** continua disponível para salvar imagens do estudo. O histórico de desfazer/refazer começa vazio quando o documento é aberto; novas alterações podem ser desfeitas normalmente. Ao abrir outro documento ou fechar o app, alterações não salvas pedem confirmação.
+
+O TraderPen registra a extensão `.traderpen` no Windows para mostrar o ícone do aplicativo e permitir abrir um documento com duplo clique. A barra pode alternar entre as orientações horizontal (padrão) e vertical; na vertical, as ferramentas de desenho ficam à direita, com os rótulos preservados e espaçamentos reduzidos. A preferência é mantida entre execuções.
+
 ---
 
 # 🧽 Borracha inteligente
@@ -152,6 +160,7 @@ Também existem três níveis de espessura:
 - Destaque
 
 A troca pode ser feita diretamente pela barra de ferramentas.
+O valor inicial da espessura é **3 px**.
 
 ---
 
@@ -189,9 +198,9 @@ Ideal para:
 
 ---
 
-# 📸 Captura e exportação
+# 📸 Captura
 
-Os estudos podem ser capturados e exportados para utilização posteriormente.
+Os estudos podem ser capturados para utilização posteriormente.
 
 É possível trabalhar com diferentes opções de fundo, incluindo:
 
@@ -222,6 +231,8 @@ O TraderPen foi desenvolvido para permitir uma troca rápida entre as ferramenta
 | **9** | Círculo |
 | **T** | Texto |
 | **E** | Borracha |
+| **Ctrl + O** | Abrir documento |
+| **Ctrl + S** | Salvar documento |
 | **Ctrl + Z** | Desfazer |
 | **Ctrl + Y** | Refazer |
 

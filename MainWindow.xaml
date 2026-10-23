@@ -3,21 +3,33 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="TraderPen Overlay"
         Icon="Assets/AppIcon.ico"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="Grayscale"
         Topmost="True"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent">
 
     <Window.Resources>
+        <SolidColorBrush x:Key="ToolbarBackgroundBrush" Color="#211B2D"/>
+        <SolidColorBrush x:Key="ToolbarButtonBrush" Color="#30263F"/>
+        <SolidColorBrush x:Key="ToolbarHoverBrush" Color="#413250"/>
+        <SolidColorBrush x:Key="ToolbarBorderBrush" Color="#514260"/>
+        <SolidColorBrush x:Key="ToolbarAccentBrush" Color="#B8A0F5"/>
+        <SolidColorBrush x:Key="ToolbarTextBrush" Color="#F1ECF8"/>
+        <SolidColorBrush x:Key="ToolbarSecondaryTextBrush" Color="#C4B8D4"/>
+
         <!-- Estilo Base dos Botões de Ferramenta -->
         <Style x:Key="ToolButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="62"/>
+            <Setter Property="Width" Value="76"/>
             <Setter Property="Height" Value="46"/>
-            <Setter Property="Margin" Value="2"/>
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Margin" Value="1"/>
+            <Setter Property="Background" Value="{StaticResource ToolbarButtonBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource ToolbarTextBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#3A3A3A"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ToolbarBorderBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -31,11 +43,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#333333"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#5C5C5C"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource ToolbarHoverBrush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource ToolbarAccentBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#3D3D3D"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource ToolbarBorderBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -48,7 +60,8 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="6">
@@ -56,6 +69,15 @@
                                               TextElement.Foreground="{TemplateBinding Foreground}"
                                               TextElement.FontWeight="Bold"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource ToolbarHoverBrush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource ToolbarAccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource ToolbarBorderBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -68,7 +90,7 @@
             <Setter Property="Height" Value="20"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="2"/>
-            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ToolbarBorderBrush}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -93,10 +115,10 @@
         <Style x:Key="ThicknessButtonStyle" TargetType="Button">
             <Setter Property="Margin" Value="2"/>
             <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="{StaticResource ToolbarButtonBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource ToolbarTextBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#3A3A3A"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ToolbarBorderBrush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -110,7 +132,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#333333"/>
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource ToolbarHoverBrush}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -122,7 +144,7 @@
         <Style x:Key="ToolLabelStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="9"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#9A9A9A"/>
+            <Setter Property="Foreground" Value="{StaticResource ToolbarSecondaryTextBrush}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,3,0,0"/>
         </Style>
@@ -221,11 +243,12 @@
 
             <!-- Toolbar Flutuante -->
             <Border x:Name="ToolbarBorder"
+                    SnapsToDevicePixels="True"
                     Canvas.Left="150" Canvas.Top="20"
-                    Background="#1C1C1E"
+                    Background="{StaticResource ToolbarBackgroundBrush}"
                     CornerRadius="10"
-                    Padding="10,4"
-                    BorderBrush="#3A3A3A"
+                    Padding="5"
+                    BorderBrush="{StaticResource ToolbarBorderBrush}"
                     BorderThickness="1"
                     Visibility="Collapsed"
                     MinHeight="104"
@@ -234,25 +257,31 @@
                     MouseLeftButtonUp="Toolbar_MouseLeftButtonUp">
 
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Color="Black" Opacity="0.5"/>
+                    <DropShadowEffect BlurRadius="12" ShadowDepth="2" Color="#120D1A" Opacity="0.3"/>
                 </Border.Effect>
 
-                <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                <StackPanel x:Name="ToolbarLayoutPanel" Orientation="Horizontal" VerticalAlignment="Center">
 
                     <!-- Linha principal: todas as ferramentas de desenho ficam visíveis -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Logo + Nome do App (área de arrasto) -->
-                        <StackPanel x:Name="ToolbarDragHandle" Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,10,0">
-                            <Border Width="28" Height="28" CornerRadius="7" Margin="0,0,7,0" ClipToBounds="True">
-                                <Image Source="Assets/logo.png" Stretch="Uniform"/>
-                            </Border>
-                            <TextBlock Text="TRADEPEN" FontSize="10" FontWeight="Bold" Foreground="#7A7A7A" VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="4,0,8,0"/>
-
+                    <StackPanel x:Name="ToolbarToolsRow" Orientation="Vertical" VerticalAlignment="Center">
                         <!-- Ferramentas -->
-                        <StackPanel x:Name="ToolContainer" Orientation="Horizontal">
+                        <StackPanel x:Name="ToolContainer" Orientation="Vertical">
+                        <UniformGrid x:Name="ColorContainer" Columns="3" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,0,4">
+                            <Button Background="#FF4444" Tag="Red" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"><TextBlock Text="R" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button>
+                            <Button Background="#00C853" Tag="Green" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"><TextBlock Text="G" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button>
+                            <Button Background="#FFD600" Tag="Yellow" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                            <Button Background="#29B6F6" Tag="Blue" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                            <Button Background="#000000" Tag="Black" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                            <Button Background="#FFFFFF" Tag="White" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                            <Button Background="#FF6D00" Tag="Orange" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                            <Button Background="#AA00FF" Tag="Purple" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                            <Button Background="#F50057" Tag="Pink" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
+                        </UniformGrid>
+                        <StackPanel x:Name="ModeButtonsContainer" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,0,7" ToolTip="F9 alterna entre modo mouse e modo desenho">
+                            <TextBlock Text="MODO (F9)" FontSize="8" FontWeight="Bold" Foreground="{StaticResource ToolbarSecondaryTextBrush}" HorizontalAlignment="Center" Margin="0,0,0,1"/>
+                            <Button x:Name="MouseModeButton" Content="MOUSE" Click="MouseModeButton_Click" Style="{StaticResource ModeToggleButtonStyle}" Width="76" Height="21" Margin="1" Padding="0" FontSize="9"/>
+                            <Button x:Name="DrawingModeButton" Content="DESENHAR" Click="DrawingModeButton_Click" Style="{StaticResource ModeToggleButtonStyle}" Width="76" Height="21" Margin="1" Padding="0" FontSize="9"/>
+                        </StackPanel>
                         <Button Tag="Select" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Selecionar / mover (M)">
                             <StackPanel>
                                 <TextBlock Text="✋" FontSize="18" HorizontalAlignment="Center"/>
@@ -265,27 +294,27 @@
                                 <TextBlock Text="CANDLE (1)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                        <Grid Margin="1" Width="76" Height="48">
                             <Button Tag="FVG" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Zona FVG (2)" Margin="0">
                                 <StackPanel>
                                     <TextBlock x:Name="ZoneModeIcon" Text="🟦" FontSize="18" HorizontalAlignment="Center"/>
                                     <TextBlock x:Name="ZoneModeLabel" Text="FVG (2)" Style="{StaticResource ToolLabelStyle}"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="ZoneModeArrow" Click="ZoneModeArrow_Click" Width="16" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Background="#3A3A3A" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip="Escolher tipo de zona">
+                            <Button x:Name="ZoneModeArrow" Click="ZoneModeArrow_Click" Width="16" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Background="{StaticResource ToolbarBorderBrush}" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip="Escolher tipo de zona">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="3"><TextBlock Text="▾" FontSize="10" Foreground="#CCCCCC" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate>
                                 </Button.Template>
                             </Button>
                         </Grid>
-                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                        <Grid Margin="1" Width="76" Height="48">
                             <Button Tag="Line" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Linha (3)" Margin="0">
                                 <StackPanel>
                                     <TextBlock x:Name="LineModeIcon" Text="📏" FontSize="18" HorizontalAlignment="Center"/>
                                     <TextBlock Text="LINHA (3)" Style="{StaticResource ToolLabelStyle}"/>
                                 </StackPanel>
                             </Button>
-                            <Button x:Name="LineModeArrow" Click="LineModeArrow_Click" Width="16" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Background="#3A3A3A" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip="Escolher rótulo da linha">
+                            <Button x:Name="LineModeArrow" Click="LineModeArrow_Click" Width="16" Height="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Background="{StaticResource ToolbarBorderBrush}" BorderThickness="0" Padding="0" Cursor="Hand" ToolTip="Escolher rótulo da linha">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="3"><TextBlock Text="▾" FontSize="10" Foreground="#CCCCCC" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate>
                                 </Button.Template>
@@ -312,29 +341,29 @@
                                           Stroke="#E0E0E0" StrokeThickness="1.6"
                                           StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                                     <Ellipse Canvas.Left="1.5" Canvas.Top="13.5" Width="5" Height="5"
-                                             Fill="#252526" Stroke="#E0E0E0" StrokeThickness="1.2"/>
+                                             Fill="{StaticResource ToolbarButtonBrush}" Stroke="#E0E0E0" StrokeThickness="1.2"/>
                                 </Canvas>
                                 <TextBlock Text="SETA (5)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
 
-                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
+                        <Rectangle Width="1" Height="30" Fill="{StaticResource ToolbarBorderBrush}" Margin="6,0"/>
 
-                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                        <Grid Margin="1" Width="76" Height="48">
                             <Button Tag="Pen" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Caneta (6)" Margin="0">
                                 <StackPanel><TextBlock Text="✏️" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="CANETA (6)" Style="{StaticResource ToolLabelStyle}"/></StackPanel>
                             </Button>
                             <Button x:Name="SmoothWritingButton" Click="SmoothWritingButton_Click"
                                     Width="18" Height="16" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Margin="0,1,1,0" Padding="0" Background="#252526"
-                                    BorderBrush="#555555" BorderThickness="1" Foreground="#CCCCCC"
+                                    Margin="0,1,1,0" Padding="0" Background="{StaticResource ToolbarButtonBrush}"
+                                    BorderBrush="{StaticResource ToolbarBorderBrush}" BorderThickness="1" Foreground="{StaticResource ToolbarSecondaryTextBrush}"
                                     FontSize="12" FontWeight="Bold" Content="≈"
                                     Cursor="Hand" ToolTip="Suavizar escrita: desativado"/>
                         </Grid>
                         <Button Tag="Highlighter" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Marca-texto (7)">
                             <StackPanel><TextBlock Text="🖍️" FontSize="18" HorizontalAlignment="Center"/><TextBlock Text="MARCA (7)" Style="{StaticResource ToolLabelStyle}"/></StackPanel>
                         </Button>
-                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                        <Grid Margin="1" Width="76" Height="48">
                             <Button Tag="Rectangle" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Retângulo (8)" Margin="0">
                                 <StackPanel>
                                     <TextBlock x:Name="RectangleModeIcon" Text="🔲" FontSize="18" HorizontalAlignment="Center"/>
@@ -345,7 +374,7 @@
                                     Width="16" Height="14"
                                     HorizontalAlignment="Right" VerticalAlignment="Top"
                                     Margin="0,2,2,0"
-                                    Background="#3A3A3A" BorderThickness="0" Padding="0"
+                                    Background="{StaticResource ToolbarBorderBrush}" BorderThickness="0" Padding="0"
                                     Cursor="Hand" ToolTip="Escolher preenchimento do retângulo">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
@@ -363,9 +392,9 @@
                             </StackPanel>
                         </Button>
 
-                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
+                        <Rectangle Width="1" Height="30" Fill="{StaticResource ToolbarBorderBrush}" Margin="6,0"/>
 
-                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
+                        <Rectangle Width="1" Height="30" Fill="{StaticResource ToolbarBorderBrush}" Margin="6,0"/>
 
                         <Button Tag="Text" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Texto (T)">
                             <StackPanel>
@@ -373,7 +402,7 @@
                                 <TextBlock Text="TEXTO (T)" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Grid Margin="2,2,2,2" Width="62" Height="46">
+                        <Grid Margin="1" Width="76" Height="48">
                             <Button Tag="Eraser" Click="ToolButton_Click" Style="{StaticResource ToolButtonStyle}" ToolTip="Borracha (E)" Margin="0">
                                 <StackPanel>
                                     <TextBlock x:Name="EraserModeIcon" Text="🧹" FontSize="18" HorizontalAlignment="Center"/>
@@ -384,7 +413,7 @@
                                     Width="16" Height="14"
                                     HorizontalAlignment="Right" VerticalAlignment="Top"
                                     Margin="0,2,2,0"
-                                    Background="#3A3A3A" BorderThickness="0" Padding="0"
+                                    Background="{StaticResource ToolbarBorderBrush}" BorderThickness="0" Padding="0"
                                     Cursor="Hand" ToolTip="Escolher modo da borracha">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
@@ -395,72 +424,70 @@
                                 </Button.Template>
                             </Button>
                         </Grid>
-                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="6,0"/>
-                        <StackPanel x:Name="ModeButtonsContainer" Orientation="Vertical" VerticalAlignment="Center" ToolTip="F9 alterna entre modo mouse e modo desenho">
-                            <TextBlock Text="MODO (F9)" FontSize="8" FontWeight="Bold" Foreground="#7A7A7A" HorizontalAlignment="Center" Margin="0,0,0,1"/>
-                            <Button x:Name="MouseModeButton" Content="MOUSE" Click="MouseModeButton_Click" Style="{StaticResource ModeToggleButtonStyle}" Width="62" Height="21" Margin="1" Padding="0" FontSize="9"/>
-                            <Button x:Name="DrawingModeButton" Content="DESENHAR" Click="DrawingModeButton_Click" Style="{StaticResource ModeToggleButtonStyle}" Width="62" Height="21" Margin="1" Padding="0" FontSize="9"/>
-                        </StackPanel>
-                        <Button x:Name="ToggleCanvasVisibilityButton" Style="{StaticResource ToolButtonStyle}" Click="ToggleCanvasVisibility_Click" ToolTip="Ocultar/Mostrar Desenhos">
-                            <StackPanel>
-                                <TextBlock x:Name="ToggleCanvasVisibilityIcon" Text="👁️" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="ToggleCanvasVisibilityLabel" Text="OCULTAR" Style="{StaticResource ToolLabelStyle}"/>
-                            </StackPanel>
-                        </Button>
                         </StackPanel>
                     </StackPanel>
 
                     <!-- Linha de contexto: cores, abas e ações da aula -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,-10,0,0">
-                        <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+                    <StackPanel x:Name="ToolbarContextRow" Orientation="Vertical" VerticalAlignment="Center">
+                    <!-- Logo + nome do aplicativo e área de arrasto -->
+                    <StackPanel x:Name="ToolbarDragHandle" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                        <Border x:Name="ToolbarLogoBorder" Width="28" Height="28" CornerRadius="7" Margin="0,0,7,0" ClipToBounds="True">
+                            <Image Source="Assets/logo.png" Stretch="Uniform"/>
+                        </Border>
+                        <TextBlock x:Name="ToolbarBrandLabel" Text="TraderPen" FontSize="11" FontStretch="SemiExpanded" FontWeight="SemiBold" Foreground="{StaticResource ToolbarSecondaryTextBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Rectangle x:Name="ToolbarToolsDivider" Width="30" Height="1" Fill="{StaticResource ToolbarBorderBrush}" Margin="2"/>
 
-                    <!-- Cores -->
-                    <UniformGrid x:Name="ColorContainer" Columns="3" VerticalAlignment="Center">
-                        <Button Background="#FF4444" Tag="Red" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"><TextBlock Text="R" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button>
-                        <Button Background="#00C853" Tag="Green" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"><TextBlock Text="G" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Button>
-                        <Button Background="#FFD600" Tag="Yellow" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                        <Button Background="#29B6F6" Tag="Blue" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                        <Button Background="#000000" Tag="Black" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                        <Button Background="#FFFFFF" Tag="White" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                        <Button Background="#FF6D00" Tag="Orange" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                        <Button Background="#AA00FF" Tag="Purple" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                        <Button Background="#F50057" Tag="Pink" Click="ColorButton_Click" Style="{StaticResource ColorButtonStyle}"/>
-                    </UniformGrid>
-
-                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
-
-                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
+                    <StackPanel x:Name="ThicknessContainer" Orientation="Vertical" VerticalAlignment="Center" Width="76" Margin="2">
+                        <DockPanel LastChildFill="True" Margin="1,0,1,1">
+                            <TextBlock Text="ESPESSURA" FontSize="8" FontWeight="Bold" Foreground="{StaticResource ToolbarSecondaryTextBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ThicknessValueLabel" Text="3 px" FontSize="9" FontWeight="Bold" Foreground="{StaticResource ToolbarAccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <Slider x:Name="ThicknessSlider" Minimum="1" Maximum="12" Value="3"
+                                TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="BottomRight"
+                                ValueChanged="ThicknessSlider_ValueChanged" Width="72" Height="24"
+                                Margin="0" ToolTip="Escolha de 1 a 12 px; com desenhos selecionados, ajusta espessura, texto e largura das velas"/>
+                        <DockPanel Margin="2,-2,2,0">
+                            <TextBlock Text="1 px" FontSize="8" Foreground="{StaticResource ToolbarSecondaryTextBrush}" DockPanel.Dock="Left"/>
+                            <TextBlock Text="12 px" FontSize="8" Foreground="{StaticResource ToolbarSecondaryTextBrush}" HorizontalAlignment="Right" DockPanel.Dock="Right"/>
+                        </DockPanel>
+                    </StackPanel>
+                    <Rectangle x:Name="ToolbarContextDivider" Width="30" Height="1" Fill="{StaticResource ToolbarBorderBrush}" Margin="2"/>
 
                     <!-- Abas (histórico de telas da aula) -->
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <StackPanel x:Name="ThicknessContainer" Orientation="Vertical" VerticalAlignment="Center" Width="126" Margin="4,0,6,0">
-                            <DockPanel LastChildFill="True" Margin="2,0,2,1">
-                                <TextBlock Text="ESPESSURA" FontSize="8" FontWeight="Bold" Foreground="#9A9A9A" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="ThicknessValueLabel" Text="2 px" FontSize="9" FontWeight="Bold" Foreground="#29B6F6" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                            </DockPanel>
-                            <Slider x:Name="ThicknessSlider" Minimum="1" Maximum="12" Value="2"
-                                    TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="BottomRight"
-                                    ValueChanged="ThicknessSlider_ValueChanged" Width="118" Height="24"
-                                    Margin="0" ToolTip="Escolha de 1 a 12 px; com desenhos selecionados, ajusta espessura, texto e largura das velas"/>
-                            <DockPanel Margin="4,-2,4,0">
-                                <TextBlock Text="1 px" FontSize="8" Foreground="#8A8A8A" DockPanel.Dock="Left"/>
-                                <TextBlock Text="12 px" FontSize="8" Foreground="#8A8A8A" HorizontalAlignment="Right" DockPanel.Dock="Right"/>
-                            </DockPanel>
-                        </StackPanel>
+                        <StackPanel x:Name="ToolbarDocumentsRow" Orientation="Vertical" VerticalAlignment="Center">
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="OpenProjectButton_Click" ToolTip="Abrir um documento TraderPen (Ctrl+O)">
+                            <StackPanel>
+                                <TextBlock Text="📂" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="ABRIR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="SaveProjectButton_Click" ToolTip="Salvar documento TraderPen (Ctrl+S)">
+                            <StackPanel>
+                                <TextBlock Text="💾" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="SALVAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="SaveProjectAsButton_Click" ToolTip="Salvar documento com outro nome">
+                            <StackPanel>
+                                <TextBlock Text="📄" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock Text="SALVAR COMO" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
                         <Button Style="{StaticResource ToolButtonStyle}" Click="NovaAbaButton_Click" ToolTip="Salvar tela atual e começar uma aba nova">
                             <StackPanel>
                                 <TextBlock Text="➕" FontSize="18" HorizontalAlignment="Center"/>
                                 <TextBlock Text="NOVA ABA" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <WrapPanel x:Name="TabsContainer" Orientation="Vertical" Height="80" VerticalAlignment="Center"/>
-                        <Button Style="{StaticResource ToolButtonStyle}" Click="ExportarAulaButton_Click" ToolTip="Exportar todas as abas da aula como imagens">
+                        <WrapPanel x:Name="TabsContainer" Orientation="Vertical" Width="76" VerticalAlignment="Center"/>
+                        <Button x:Name="ToolbarOrientationButton" Style="{StaticResource ToolButtonStyle}" Click="ToolbarOrientationButton_Click" ToolTip="Mudar a barra para orientação vertical">
                             <StackPanel>
-                                <TextBlock Text="💾" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="EXPORTAR" Style="{StaticResource ToolLabelStyle}"/>
+                                <TextBlock x:Name="ToolbarOrientationIcon" Text="↕" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="ToolbarOrientationLabel" Text="VERTICAL" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Button Style="{StaticResource ToolButtonStyle}" Click="ExportarComposicaoButton_Click" ToolTip="Exportar as abas com o fundo visível na tela">
+                        <Button Style="{StaticResource ToolButtonStyle}" Click="CapturarComposicaoButton_Click" ToolTip="Capturar as abas com o fundo visível na tela">
                             <StackPanel>
                                 <TextBlock Text="📷" FontSize="18" HorizontalAlignment="Center"/>
                                 <TextBlock Text="CAPTURAR" Style="{StaticResource ToolLabelStyle}"/>
@@ -468,29 +495,40 @@
                         </Button>
                     </StackPanel>
 
-                    <Rectangle Width="1" Height="30" Fill="#333333" Margin="8,0"/>
-
                     <!-- Ações -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel x:Name="ToolbarActionsRow" Orientation="Vertical" VerticalAlignment="Center">
+                        <Rectangle x:Name="ToolbarActionsDivider" Width="30" Height="1" Fill="{StaticResource ToolbarBorderBrush}" Margin="2"/>
                         <Button x:Name="BoardModeButton" Style="{StaticResource ToolButtonStyle}" Click="BoardModeButton_Click" ToolTip="Alternar fundo: Transparente / Whiteboard / Blackboard">
                             <StackPanel>
                                 <TextBlock x:Name="BoardModeIcon" Text="🖥️" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="BoardModeLabel" Text="TRANSP." Style="{StaticResource ToolLabelStyle}"/>
+                                <TextBlock x:Name="BoardModeLabel" Text="FUNDO" Style="{StaticResource ToolLabelStyle}"/>
                             </StackPanel>
                         </Button>
-                        <Button Height="52" Style="{StaticResource ToolButtonStyle}" Click="UndoButton_Click" ToolTip="Desfazer (Ctrl+Z)">
-                            <StackPanel>
-                                <TextBlock Text="↶" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="DESFAZER" Style="{StaticResource ToolLabelStyle}"/>
-                                <TextBlock Text="CTRL+Z" FontSize="8" LineHeight="9" Height="9" Margin="0,-1,0,0" Foreground="#7A7A7A" HorizontalAlignment="Center"/>
-                            </StackPanel>
+                        <Button Height="46" Style="{StaticResource ToolButtonStyle}" Click="UndoButton_Click" ToolTip="Desfazer (Ctrl+Z)">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="↶" FontSize="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="DESFAZER" Style="{StaticResource ToolLabelStyle}" Margin="2,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Grid.Row="1" Text="CTRL+Z" FontSize="8" LineHeight="10" Margin="0,0,0,3" Foreground="#7A7A7A" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
                         </Button>
-                        <Button Height="52" Style="{StaticResource ToolButtonStyle}" Click="RedoButton_Click" ToolTip="Refazer (Ctrl+Y)">
-                            <StackPanel>
-                                <TextBlock Text="↷" FontSize="18" HorizontalAlignment="Center"/>
-                                <TextBlock Text="REFAZER" Style="{StaticResource ToolLabelStyle}"/>
-                                <TextBlock Text="CTRL+Y" FontSize="8" LineHeight="9" Height="9" Margin="0,-1,0,0" Foreground="#7A7A7A" HorizontalAlignment="Center"/>
-                            </StackPanel>
+                        <Button Height="46" Style="{StaticResource ToolButtonStyle}" Click="RedoButton_Click" ToolTip="Refazer (Ctrl+Y)">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="↷" FontSize="18" VerticalAlignment="Center"/>
+                                    <TextBlock Text="REFAZER" Style="{StaticResource ToolLabelStyle}" Margin="2,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Grid.Row="1" Text="CTRL+Y" FontSize="8" LineHeight="10" Margin="0,0,0,3" Foreground="#7A7A7A" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
                         </Button>
                         <Button Style="{StaticResource ToolButtonStyle}" Click="ClearButton_Click" ToolTip="Limpar Tudo">
                             <StackPanel>
@@ -516,7 +554,13 @@
                                 <TextBlock Text="FECHAR" Style="{StaticResource ToolLabelStyle}" Foreground="#FF6B6B"/>
                             </StackPanel>
                         </Button>
-                        </StackPanel>
+                        <Button x:Name="ToggleCanvasVisibilityButton" Style="{StaticResource ToolButtonStyle}" Click="ToggleCanvasVisibility_Click" ToolTip="Ocultar/Mostrar Desenhos">
+                            <StackPanel>
+                                <TextBlock x:Name="ToggleCanvasVisibilityIcon" Text="👁️" FontSize="18" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="ToggleCanvasVisibilityLabel" Text="OCULTAR" Style="{StaticResource ToolLabelStyle}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -715,6 +759,16 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Ctrl+C / Ctrl+V" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Copiar / colar seleção" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
                                         <TextBlock Text="Ctrl+Z" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
                                     <TextBlock Grid.Column="1" Text="Desfazer" Style="{StaticResource ShortcutDescStyle}"/>
@@ -728,6 +782,26 @@
                                         <TextBlock Text="Ctrl+Y" Style="{StaticResource ShortcutKeyTextStyle}"/>
                                     </Border>
                                     <TextBlock Grid.Column="1" Text="Refazer" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Ctrl+S" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Salvar documento" Style="{StaticResource ShortcutDescStyle}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource ShortcutKeyBadgeStyle}">
+                                        <TextBlock Text="Ctrl+O" Style="{StaticResource ShortcutKeyTextStyle}"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Abrir documento" Style="{StaticResource ShortcutDescStyle}"/>
                                 </Grid>
                                 <Grid Margin="0,0,0,5">
                                     <Grid.ColumnDefinitions>
